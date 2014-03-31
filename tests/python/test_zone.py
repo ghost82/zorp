@@ -3,7 +3,7 @@ from Zorp.Core import *
 from Zorp.Zorp import quit
 from Zorp.Zone import Zone
 from Zorp.Subnet import Subnet
-from Zorp.Session import MasterSession
+from Zorp.Session import MasterSession, StackedSession, ClientInfo
 from time import time
 from socket import htonl
 from Zorp.Exceptions import ZoneException
@@ -12,7 +12,47 @@ import radix
 
 config.options.kzorp_enabled = FALSE
 
+class FakeProxy(object):
+    def __init__(self, name):
+        self.name = name
+
+class MyResolverCache():
+    def __init__(self, hosts, server=None):
+       self.hostnames = { "blog.balabit" : set(['10.10.40.1']),
+                          "intraweb.balabit" : set(['10.10.40.1']),
+                          "intra.balabit" : set(['10.10.40.1']),
+                          "core.balabit" : set(['10.10.0.1', 'fec0:0:0:b000::ffff']) }
+       self.addresses = { "10.10.0.1" : "core.balabit", "10.10.40.1": "blog.balabit"}
+
+    def addHost(self, hostname):
+        pass
+
+    def removeHost(self, hostname):
+        pass
+
+    def shouldUpdate(self):
+        return True
+
+    def lookupAddress(self, hostname):
+        """<method internal="yes"/>
+        """
+        if self.addresses.has_key(hostname):
+            return self.addresses[hostname]
+        else:
+            return None
+
+    def lookupHostname(self, hostname):
+        """<method internal="yes"/>
+        """
+        if self.hostnames.has_key(hostname):
+            return self.hostnames[hostname]
+        else:
+            return None
+
 class TestZone(unittest.TestCase):
+
+    def setUp(self):
+        Zone.dnscache = MyResolverCache(None)
 
     def tearDown(self):
         Zone.zone_subnet_tree = radix.Radix()
@@ -69,7 +109,7 @@ class TestZone(unittest.TestCase):
         self.assertEqual(self.doLookup('192.168.0.184'), t14)
         self.assertEqual(self.doLookup('dead:beef:baad:c0ff:ee00:1122:3344:5567'), t15)
 
-def init(names, virtual_name, is_master):
+def init(name, virtual_name, is_master):
     unittest.main(argv=('/',))
 
 # Local Variables:

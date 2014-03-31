@@ -23,7 +23,7 @@ typedef struct _ZDotTransfer
 extern ZClass ZDotTransfer__class;
 
 ZDotTransfer *
-z_dot_transfer_new(ZClass *class,
+z_dot_transfer_new(ZClass *class_,
                    ZProxy *owner,
                    ZPoll *poll,
                    ZStream *client, ZStream *server,

@@ -1,27 +1,16 @@
 LIBS = @ZORP_LIBS@ @MODULES_LIBS@ @DEPS_LIBS@
+LDADD = -lboost_unit_test_framework
+CPPFLAGS = @MODULES_CPPFLAGS@ -DBOOST_TEST_DYN_LINK=1
 
-check_PROGRAMS = pystruct test_audit test_szig test_dynexpect test_proxy test_start_audit
-
-if ALERTING_ENABLED
-check_PROGRAMS += test_alerting
-endif
+check_PROGRAMS = test_pystruct test_szig test_proxy test_proxyssl_sni
 
 
-pystruct_SOURCES = pystruct.c
-test_audit_SOURCES = test_audit.c
-test_szig_SOURCES = test_szig.c
-test_dynexpect_SOURCES = test_dynexpect.c
-test_proxy_SOURCES = helpers/zproxy.c test_proxy.c
-test_start_audit_SOURCES = helpers/zproxy.c helpers/start_audit.c test_start_audit.c
+test_pystruct_SOURCES = test_pystruct.cc
+test_szig_SOURCES = test_szig.cc
+test_dynexpect_SOURCES = test_dynexpect.cc
+test_proxy_SOURCES = helpers/zproxy.cc test_proxy.cc
+test_proxyssl_sni_SOURCES = helpers/zproxy.cc helpers/proxyssl_sni.cc test_proxyssl_sni.cc
 
-if ALERTING_ENABLED
-test_alerting_SOURCES = test_alerting.c
-endif
+TESTS = $(check_PROGRAMS)
 
-TESTS = pystruct test_audit test_szig test_proxy test_start_audit
-
-if ALERTING_ENABLED
-TESTS += test_alerting
-endif
-
-EXTRA_DIST = pystruct.py
+EXTRA_DIST = pystruct.py helpers/zproxy.h helpers/proxyssl_sni.h helpers/zproxy.h

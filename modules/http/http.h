@@ -1,11 +1,10 @@
 /***************************************************************************
  *
- * Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
- * 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 as published
- * by the Free Software Foundation.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation.
  *
  * Note that this permission is granted for only version 2 of the GPL.
  *
@@ -20,7 +19,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  *
  ***************************************************************************/
 
@@ -36,7 +35,6 @@
 #include <zorp/poll.h>
 #include <zorp/attach.h>
 #include <zorp/blob.h>
-#include <zorp/bllookup.h>
 #include <zorp/proxy/transfer2.h>
 #include <zorp/policy.h>
 
@@ -60,18 +58,25 @@
 
 
 /* request specific constants */
-#define HTTP_REQ_ACCEPT       1
-#define HTTP_REQ_DENY         2
-#define HTTP_REQ_REJECT       3
-#define HTTP_REQ_ABORT        4
-#define HTTP_REQ_POLICY       6
+typedef enum _HttpRequestVerdict
+{
+  HTTP_REQ_ACCEPT = 1,
+  HTTP_REQ_DENY = 2,
+  HTTP_REQ_REJECT = 3,
+  HTTP_REQ_ABORT = 4,
+  HTTP_REQ_POLICY = 6,
+  HTTP_REQ_CUSTOM_RESPONSE = 7,
+} HttpRequestVerdict;
 
 /* response specific constants */
-#define HTTP_RSP_ACCEPT       1
-#define HTTP_RSP_DENY         2
-#define HTTP_RSP_REJECT       3
-#define HTTP_RSP_ABORT        4
-#define HTTP_RSP_POLICY       6
+typedef enum _HttpResponseVerdict
+{
+  HTTP_RSP_ACCEPT = 1,
+  HTTP_RSP_DENY = 2,
+  HTTP_RSP_REJECT = 3,
+  HTTP_RSP_ABORT = 4,
+  HTTP_RSP_POLICY = 6,
+} HttpResponseVerdict;
 
 /* header specific constants */
 #define HTTP_HDR_ACCEPT        1
@@ -143,21 +148,24 @@
 #define HTTP_HDR_CF_TILDE           (1 << 26)
 #define HTTP_HDR_CF_EXCLAM          (1 << 27)
 
-/* error codes */
-#define HTTP_MSG_OK             0
-#define HTTP_MSG_CLIENT_SYNTAX  1
-#define HTTP_MSG_SERVER_SYNTAX  2
-#define HTTP_MSG_POLICY_SYNTAX  3
-#define HTTP_MSG_POLICY_VIOLATION 4
-#define HTTP_MSG_INVALID_URL    5
-#define HTTP_MSG_CONNECT_ERROR  6
-#define HTTP_MSG_IO_ERROR	7
-#define HTTP_MSG_AUTH_REQUIRED  8
-#define HTTP_MSG_CLIENT_TIMEOUT 9
-#define HTTP_MSG_SERVER_TIMEOUT 10
-#define HTTP_MSG_BAD_CONTENT	11
-#define HTTP_MSG_FTP_ERROR	12
-#define HTTP_MSG_REDIRECT	13
+typedef enum _HttpMessageCode
+{
+  HTTP_MSG_NOT_ASSIGNED     = -1,
+  HTTP_MSG_OK               =  0,
+  HTTP_MSG_CLIENT_SYNTAX    =  1,
+  HTTP_MSG_SERVER_SYNTAX    =  2,
+  HTTP_MSG_POLICY_SYNTAX    =  3,
+  HTTP_MSG_POLICY_VIOLATION =  4,
+  HTTP_MSG_INVALID_URL      =  5,
+  HTTP_MSG_CONNECT_ERROR    =  6,
+  HTTP_MSG_IO_ERROR         =  7,
+  HTTP_MSG_AUTH_REQUIRED    =  8,
+  HTTP_MSG_CLIENT_TIMEOUT   =  9,
+  HTTP_MSG_SERVER_TIMEOUT   = 10,
+  HTTP_MSG_BAD_CONTENT      = 11,
+  HTTP_MSG_FTP_ERROR        = 12,
+  HTTP_MSG_REDIRECT         = 13,
+} HttpMessageCode;
 
 /* protocol to pull data on the server side */
 #define HTTP_PROTO_HTTP		0
@@ -224,7 +232,7 @@ struct _HttpURL
 
 typedef struct _HttpElementInfo
 {
-  gchar *name;
+  const gchar *name;
   guint32 flags;
   gssize max_len; /* only used for headers */
 } HttpElementInfo;
@@ -465,6 +473,12 @@ struct _HttpProxy
   /* the directory where error file templates are stored */
   GString *error_files_directory;
 
+  /* send a locally constructed reponse immediately to client without the server being involved */
+  gboolean send_custom_response;
+
+  /* body to send to client as an immediate response */
+  GString *custom_response_body;
+
   /* Maximum allowed time between two forced authentication request */
   gint max_auth_time;
 
@@ -489,21 +503,21 @@ extern ZClass HttpProxy__class;
 
 typedef guint (*HttpHeaderFilter)(HttpProxy *self, GString *header_name, GString *header_value);
 
-guint http_write(HttpProxy *self, guint side, gchar *buf, size_t buflen);
+GIOStatus http_write(HttpProxy *self, guint side, gchar *buf, size_t buflen);
 gboolean http_connect_server(HttpProxy *self);
 
-gboolean http_data_transfer(HttpProxy *self, gint transfer_type, guint from, ZStream *from_stream, guint to, ZStream *to_stream, gboolean expect_data, gboolean suppress_data, HttpTransferPreambleFunc format_preamble);
+gboolean http_data_transfer(HttpProxy *self, gint transfer_type, ZEndpoint from, ZStream *from_stream, ZEndpoint to, ZStream *to_stream, gboolean expect_data, gboolean suppress_data, HttpTransferPreambleFunc format_preamble);
 
 gboolean
-http_lookup_header(HttpHeaders *headers, gchar *what, HttpHeader **p);
+http_lookup_header(HttpHeaders *headers, const gchar *what, HttpHeader **p);
 
 GHashTable *http_parse_header_cookie(HttpHeaders *hdrs);
 
 gboolean
-http_fetch_headers(HttpProxy *self, int side);
+http_fetch_headers(HttpProxy *self, ZEndpoint side);
 
 gboolean
-http_filter_headers(HttpProxy *self, guint side, HttpHeaderFilter filter);
+http_filter_headers(HttpProxy *self, ZEndpoint side, HttpHeaderFilter filter);
 
 gboolean
 http_flat_headers(HttpHeaders *hdrs);
@@ -521,10 +535,10 @@ void
 http_destroy_headers(HttpHeaders *hdrs);
 
 HttpHeader *
-http_add_header(HttpHeaders *hdrs, gchar *name, gint name_len, gchar *value, gint value_len);
+http_add_header(HttpHeaders *hdrs, const gchar *name, gint name_len, gchar *value, gint value_len);
 
 void
-http_log_headers(HttpProxy *self, gint side, gchar *tag);
+http_log_headers(HttpProxy *self, ZEndpoint side, const gchar *tag);
 
 gint http_filter_hash_compare(gconstpointer a, gconstpointer b);
 gint http_filter_hash_bucket(gconstpointer a);
@@ -565,7 +579,7 @@ http_proto_lookup_hash(GHashTable *hash, const gchar *index)
 {
   HttpElementInfo *e;
 
-  e = g_hash_table_lookup(hash, index);
+  e = static_cast<HttpElementInfo *>(g_hash_table_lookup(hash, index));
   if (e)
     return e->flags;
   return 0;
@@ -586,13 +600,13 @@ http_proto_response_lookup(const gchar *resp)
 static inline HttpElementInfo *
 http_proto_request_hdr_lookup(const gchar *req)
 {
-  return g_hash_table_lookup(request_hdr_proto_hash, req);
+  return static_cast<HttpElementInfo *>(g_hash_table_lookup(request_hdr_proto_hash, req));
 }
 
 static inline HttpElementInfo *
 http_proto_response_hdr_lookup(const gchar *resp)
 {
-  return g_hash_table_lookup(response_hdr_proto_hash, resp);
+  return static_cast<HttpElementInfo *>(g_hash_table_lookup(response_hdr_proto_hash, resp));
 }
 
 

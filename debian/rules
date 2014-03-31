@@ -74,9 +74,7 @@ install: build
 
 	# Add here commands to install the package into debian/tmp.
 	$(MAKE) install DESTDIR=`pwd`/debian/tmp/
-	mv `pwd`/debian/tmp/etc/zorp/zorpctl.conf.sample `pwd`/debian/tmp/etc/zorp/zorpctl.conf
 	dh_movefiles
-	(cd pylib/kzorp && python2.6 setup.py install --prefix ../../debian/python-kzorp/usr --install-layout=deb)
 
 # Build architecture-independent files here.
 binary-indep: build install
@@ -94,6 +92,7 @@ binary-indep: build install
 #	dh_installcron -i
 #	dh_installman
 #	dh_installinfo -i
+	dh_installinit -i --package=kzorp --name=kzorpd
 	dh_installchangelogs -i
 	dh_link -i
 	dh_strip -i
@@ -103,7 +102,7 @@ binary-indep: build install
 	dh_suidregister -i
 	dh_makeshlibs -i
 	dh_installdeb -i
-	dh_python -i
+	dh_python2 -i
 #	dh_perl -i
 	dh_shlibdeps -i
 	dh_gencontrol -i
@@ -123,19 +122,21 @@ binary-arch: build install
 #	dh_installemacsen -a
 #	dh_installpam -a
 	dh_installinit --package=zorp --name=zorp
+	dh_installinit --package=kzorp --name=kzorpd
 	dh_installcron --package=zorp --name=zorp
 	dh_installlogrotate --package=zorp --name=zorp
 #	dh_installinfo -a
 	dh_installchangelogs -a
 	dh_link -a
-	dh_strip -a --dbg-package=zorp --dbg-package=zorp-modules
+	dh_strip -a --dbg-package=zorp --dbg-package=zorp-modules --dbg-package=libzorp5.0-0
 	dh_compress -a
 	dh_fixperms -a
 	chmod 750 `pwd`/debian/zorp/etc/zorp
 	dh_makeshlibs -a
 	dh_installdeb -a
+	dh_python2 -a
 #	dh_perl -a
-	dh_shlibdeps -a -l`pwd`/debian/libzorp-pro3.9-8/usr/lib:`pwd`/debian/zorp/usr/lib
+	dh_shlibdeps -a -l`pwd`/debian/libzorp-pro5.0-0/usr/lib:`pwd`/debian/zorp/usr/lib
 	dh_gencontrol -a
 	dh_md5sums -a
 	dh_builddeb -a

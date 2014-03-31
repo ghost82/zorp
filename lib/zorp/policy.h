@@ -1,11 +1,10 @@
 /***************************************************************************
  *
- * Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
- * 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 as published
- * by the Free Software Foundation.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation.
  *
  * Note that this permission is granted for only version 2 of the GPL.
  *
@@ -20,7 +19,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  *
  ***************************************************************************/
 
@@ -85,8 +84,8 @@ gboolean z_policy_cleanup(ZPolicy *self,
 #define z_policy_exc_attribute_error PyExc_AttributeError
 #define z_policy_exc_runtime_error PyExc_RuntimeError
 
-void z_policy_raise_exception(gchar *exception_name, gchar *desc);
-void z_policy_raise_exception_obj(ZPolicyObj *exc, gchar *desc);
+void z_policy_raise_exception(gchar *exception_name, const gchar *desc);
+void z_policy_raise_exception_obj(ZPolicyObj *exc, const gchar *desc);
 
 #define z_policy_lock z_policy_thread_acquire
 #define z_policy_unlock z_policy_thread_release
@@ -104,7 +103,7 @@ typedef enum
   ZV_ABORT      = 4, /* abort the connection */
   ZV_DROP       = 5, /* continue and don't do it */
   ZV_POLICY     = 6, /* Policy level will decide what to do */
-  ZV_ERROR      = 7, /* Error occured try to nice fail */
+  ZV_ERROR      = 7, /* Error occurred try to nice fail */
   ZV_PROXY_SPECIFIC = 100,
 } ZVerdict;
 
@@ -182,14 +181,14 @@ z_policy_var_parse_ssize(PyObject *val, gssize *result)
 gboolean z_policy_tuple_get_verdict(ZPolicyObj *tuple, guint *verdict);
 ZPolicyObj *z_policy_convert_strv_to_list(gchar const **strv);
 
-ZPolicyObj *z_policy_call(ZPolicyObj *handler, char *name, ZPolicyObj *args, gboolean *called, gchar *session_id);
-int z_policy_event(ZPolicyObj *handler, char *name, ZPolicyObj *args, gchar *session_id);
-PyObject *z_policy_call_object(PyObject *func, PyObject *args, gchar *session_id);
+ZPolicyObj *z_policy_call(ZPolicyObj *handler, const char *name, ZPolicyObj *args, gboolean *called, const gchar *session_id);
+int z_policy_event(ZPolicyObj *handler, const char *name, ZPolicyObj *args, gchar *session_id);
+PyObject *z_policy_call_object(PyObject *func, PyObject *args, const gchar *session_id);
 gint z_policy_setattr(ZPolicyObj *handler, char *name, ZPolicyObj *value);
 gint z_policy_setattr_expr(PyObject *container, const char *name, PyObject *new_value);
 ZPolicyObj *z_policy_getattr(ZPolicyObj *handler, char *name);
 PyObject *z_policy_getattr_expr(PyObject *container, const char *name);
-PyObject *z_session_getattr(PyObject *handler, char *name);
+PyObject *z_session_getattr(PyObject *handler, const char *name);
 PyObject *z_global_getattr(const gchar *name);
 
 #endif

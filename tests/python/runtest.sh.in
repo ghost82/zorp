@@ -3,5 +3,5 @@ ZORP=../../zorp/zorp
 
 script=$1
 shift
-$ZORP --no-syslog --no-caps -p $script
+G_DEBUG="fatal_warnings gc-friendly" G_SLICE="always-malloc" $ZORP -F --no-syslog --no-caps -p $script
 exit $?

@@ -1,12 +1,11 @@
 ############################################################################
 ##
-## Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-## 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or modify
-## it under the terms of the GNU General Public License as published by
-## the Free Software Foundation; either version 2 of the License, or
-## (at your option) any later version.
+## This program is free software; you can redistribute it and/or
+## modify it under the terms of the GNU General Public License
+## as published by the Free Software Foundation; either version 2
+## of the License, or (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,8 +14,7 @@
 ##
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-##
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 ##
 ############################################################################
 
@@ -54,7 +52,7 @@
 """
 
 from Zorp import *
-from SockAddr import SockAddrInet
+from SockAddr import SockAddrInet, SockAddrInet6
 from Subnet import InetSubnet
 from Cache import ShiftCache, TimedCache
 from Exceptions import DACException, LimitException
@@ -65,7 +63,7 @@ import types
 
 from random import choice, randint, SystemRandom
 
-import kzorp.kzorp_netlink
+import kzorp.messages
 import socket
 
 NAT_SNAT = 0
@@ -179,11 +177,11 @@ Service(name="office_http_inter", proxy_class=HttpProxy, snat_policy="demo_natpo
 
             cached = self.nat_cache.lookup(key)
             if cached:
-                addr = addrs[nat_type].clone(FALSE)
-                addr.ip_s = cached
+                addr = cached.clone(FALSE)
+                addr.ip_s = addrs[nat_type].port
             else:
                 addr = self.nat.performTranslation(session, addrs, nat_type)
-                self.nat_cache.store(key, addr.ip_s if addr else None)
+                self.nat_cache.store(key, addr.clone(FALSE) if addr else None)
         else:
             addr = self.nat.performTranslation(session, addrs, nat_type)
 
@@ -412,7 +410,7 @@ class GeneralNAT(AbstractNAT):
         </method>
         """
         def subnetToKZorpTuple(subnet):
-            return (kzorp.kzorp_netlink.KZ_SVC_NAT_MAP_IPS, socket.ntohl(subnet.network()), socket.ntohl(subnet.broadcast()), 0, 0)
+            return (kzorp.messages.KZ_SVC_NAT_MAP_IPS, socket.ntohl(subnet.network()), socket.ntohl(subnet.broadcast()), 0, 0)
 
         result = []
         for (src_tuple, dst_tuple, map_tuple) in self.mappings[NAT_SNAT]:
@@ -859,4 +857,189 @@ class HashNAT(AbstractNAT):
                 raise DACException, 'IP not within the required range.'
             else:
                 return addr
+
+class NAT64(AbstractNAT):
+    """
+    <class maturity="stable">
+      <summary>
+       Class that performs translation from IPv6 to IPv4 addresses (NAT64)
+      </summary>
+      <description>
+       NAT64 maps specific bits of the IPv6 address to IPv4 addresses according to the
+       NAT64 specification as described in RFC6052
+       (http://tools.ietf.org/html/rfc6052#section-2.2).
+      </description>
+      <metainfo>
+        <attributes/>
+      </metainfo>
+    </class>
+    """
+    def __init__(self, prefix_mask=96):
+        """
+        <method maturity="stable">
+          <summary>
+            Constructor to initialize a NAT64 instance.
+          </summary>
+          <description>
+            <para>
+              This constructor initializes a NAT64 instance.
+            </para>
+          </description>
+          <metainfo>
+            <arguments>
+              <argument maturity="stable">
+                <name>prefix_mask</name>
+                <type>
+                  <integer display_name="Prefix netmask"/>
+                </type>
+                <default>96</default>
+                <description>This parameter specifies the length of the IPv6 address to consider and must
+                be one of 32, 40, 48, 56, 64, or 96.</description>
+              </argument>
+            </arguments>
+          </metainfo>
+        </method>
+        """
+        super(NAT64, self).__init__()
+
+        permitted_masks = (32, 40, 48, 56, 64, 96)
+        if prefix_mask not in permitted_masks:
+            raise UserException, "Prefix mask must be one of: %s; mask='%s'" % (permitted_masks, prefix_mask)
+        self.prefix_mask = prefix_mask
+
+    def performTranslation(self, session, addrs, nat_type):
+        """
+        <method internal="yes">
+        </method>
+        """
+        if addrs[nat_type].family != socket.AF_INET6:
+            raise UserException, "NAT64 might only be used to translate IPv6 addresses; family='%s'" % addrs[nat_type].family
+
+        v6addr = addrs[nat_type].pack()
+        translate = {
+                      96 : lambda mask: v6addr[-4:],
+                      64 : lambda mask: v6addr[-7:-3],
+                      56 : lambda mask: v6addr[-9:-8]  + v6addr[-7:-4],
+                      48 : lambda mask: v6addr[-10:-8] + v6addr[-7:-5],
+                      40 : lambda mask: v6addr[-11:-8] + v6addr[-7],
+                      32 : lambda mask: v6addr[-12:-8],
+                    }
+
+        v4addr = translate[self.prefix_mask](self)
+        try:
+            unwrapped = socket.inet_ntop(socket.AF_INET, v4addr)
+        except socket.error, e:
+            log(None, CORE_ERROR, 2, "Unable to perform NAT mapping; error='%s'", (e,))
+            return None
+
+        return SockAddrInet(unwrapped, addrs[nat_type].port)
+
+class NAT46(AbstractNAT):
+    """
+    <class maturity="stable">
+      <summary>
+       Class that performs translation from IPv4 to IPv6 addresses (NAT46)
+      </summary>
+      <description>
+       NAT46 embeds and IPv4 address into a specific portion of the IPv6 address
+       according to the NAT46 specification as described in RFC6052
+       (http://tools.ietf.org/html/rfc6052#section-2.2).
+      </description>
+      <metainfo>
+        <attributes/>
+      </metainfo>
+    </class>
+    """
+    def __init__(self, prefix="64:ff9b::", prefix_mask=96, suffix="::"):
+        """
+        <method maturity="stable">
+          <summary>
+            Constructor to initialize a NAT46 instance.
+          </summary>
+          <description>
+            <para>
+              This constructor initializes a NAT46 instance.
+            </para>
+          </description>
+          <metainfo>
+            <arguments>
+              <argument maturity="stable">
+                <name>prefix</name>
+                <type>
+                  <string display_name="Prefix"/>
+                </type>
+                <default>"64:ff9b::"</default>
+                <description>This parameter specifies the common leading part of the IPv6 address that
+                the IPv4 address should map into. Bits that exceed the mask will be overwritten by the
+                mapping.</description>
+              </argument>
+              <argument maturity="stable">
+                <name>prefix_mask</name>
+                <type>
+                  <integer display_name="Prefix netmask"/>
+                </type>
+                <default>96</default>
+                <description>This parameter specifies the position to embed the IPv4 address to and must
+                be one of 32, 40, 48, 56, 64, or 96.</description>
+              </argument>
+              <argument maturity="stable">
+                <name>suffix</name>
+                <type>
+                  <string display_name="Suffix"/>
+                </type>
+                <default>"::"</default>
+                <description>This parameter specifies the common trailing part of the IPv6 address that
+                the IPv4 address should map into. The length of the suffix must not exceed the empty bit
+                count determined by the configured prefix mask.</description>
+              </argument>
+            </arguments>
+          </metainfo>
+        </method>
+        """
+        super(NAT46, self).__init__()
+
+        try:
+            self.prefix = socket.inet_pton(socket.AF_INET6, prefix)
+        except socket.error, e:
+            raise UserException, "Invalid prefix string specified; error='%s'" % e
+
+        try:
+            self.suffix = socket.inet_pton(socket.AF_INET6, suffix)
+        except socket.error, e:
+            raise UserException, "Invalid suffix string specified; error='%s'" % e
+
+        permitted_masks = (32, 40, 48, 56, 64, 96)
+        if prefix_mask not in permitted_masks:
+            raise UserException, "Prefix mask must be one of: %s; mask='%s'" % (permitted_masks, prefix_mask)
+
+        leftbytes = (128 - prefix_mask) / 8
+        if self.suffix[:leftbytes] != ("\x00" * leftbytes):
+            raise UserException, "Suffix length doesn't match the configured mask, the first %i bytes should be zeroes" % leftbytes
+
+        self.prefix_mask = prefix_mask
+
+    def performTranslation(self, session, addrs, nat_type):
+        """
+        <method internal="yes">
+        </method>
+        """
+        if addrs[nat_type].family != socket.AF_INET:
+            raise UserException, "NAT46 might only be used to translate IPv4 addresses; family='%s'" % addrs[nat_type].family
+
+        v4packed = addrs[nat_type].pack()
+        translate = { 96 : lambda x: self.prefix[:-4]  + v4packed,
+                      64 : lambda x: self.prefix[:-8]  + "\x00"       + v4packed + self.suffix[-3:],
+                      56 : lambda x: self.prefix[:-9]  + v4packed[0]  + "\x00"   + v4packed[1:]      + self.suffix[-4:],
+                      48 : lambda x: self.prefix[:-10] + v4packed[:2] + "\x00"   + v4packed[2:]      + self.suffix[-5:],
+                      40 : lambda x: self.prefix[:-11] + v4packed[:3] + "\x00"   + v4packed[3]       + self.suffix[-6:],
+                      32 : lambda x: self.prefix[:-12] + v4packed     + "\x00"   + self.suffix[-7:],
+                    }
+        v6addr = translate[self.prefix_mask](self)
+        try:
+            encapsulated = socket.inet_ntop(socket.AF_INET6, v6addr)
+        except socket.error, e:
+            log(None, CORE_ERROR, 2, "Unable to perform NAT mapping; error='%s'", (e,))
+            return None
+
+        return SockAddrInet6(encapsulated, addrs[nat_type].port)
 

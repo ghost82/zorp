@@ -1,12 +1,11 @@
 ############################################################################
 ##
-## Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-## 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or modify
-## it under the terms of the GNU General Public License as published by
-## the Free Software Foundation; either version 2 of the License, or
-## (at your option) any later version.
+## This program is free software; you can redistribute it and/or
+## modify it under the terms of the GNU General Public License
+## as published by the Free Software Foundation; either version 2
+## of the License, or (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,8 +14,7 @@
 ##
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-##
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 ##
 ############################################################################
 """
@@ -41,7 +39,9 @@
 from Zorp import *
 from Cache import TimedCache
 from Exceptions import MatcherException
-import os, re, string, DNS, types, time, smtplib, socket, traceback
+from ResolverCache import ResolverCache
+from ResolverCache import DNSResolver
+import os, re, string, types, time, smtplib, socket, traceback
 
 class MatcherPolicy(object):
     """<class maturity="stable" type="matcherpolicy">
@@ -807,8 +807,6 @@ class DNSMatcher(AbstractMatcher):
     </class>
     """
 
-    DNS.DiscoverNameServers()
-
     def __init__(self, hosts, server=None):
         """
         <method maturity="stable">
@@ -844,96 +842,14 @@ class DNSMatcher(AbstractMatcher):
           </metainfo>
         </method>
         """
-        self.server = server
-        if type(hosts) == type(''):
-            self.hosts = [ hosts ]
-        else:
-            self.hosts = hosts
-
-        # address -> set of names
-        self.cache_address_to_names = {}
-        # name -> set of addresses
-        self.cache_name_to_addresses = {}
-        # hostname -> expiry timestamp
-        self.expires = {}
-
-    def addHostToCache(self, host, addresses):
-        """<method internal="yes">
-        </method>
-        """
-        self.cache_name_to_addresses.setdefault(host, set()).update(set(addresses))
-
-        for address in addresses:
-            self.cache_address_to_names.setdefault(address, set()).add(host)
-
-    def dropHostFromCache(self, host):
-        """<method internal="yes">
-        </method>
-        """
-        if host not in self.cache_name_to_addresses:
-            return
-
-        for address in self.cache_name_to_addresses[host]:
-            self.cache_address_to_names[address].remove(host)
-            if len(self.cache_address_to_names[address]) == 0:
-                del self.cache_address_to_names[address]
-
-        del self.cache_name_to_addresses[host]
-
-    def updateCachedHost(self, host, now):
-        """<method internal="yes">
-        </method>
-        """
-        # drop old cached values
-        self.dropHostFromCache(host)
-
-        # do lookup
-        params = { "name": host, "qtype": DNS.Type.ANY }
-        if self.server:
-            params["server"] = self.server
-        request = DNS.DnsRequest(**params)
-        try:
-            answer = request.req()
-        except DNS.DNSError:
-            log(None, CORE_ERROR, 3, "Error resolving host; host='%s'", host)
-            return
-
-        if len(answer.answers) > 0:
-            # filter A and AAAA records
-            addresses = filter(lambda x: x["typename"] == "A" or x["typename"] == "AAAA", answer.answers)
-            # got A or AAA records, find minimum TTL and update cache
-            ttl = min(map(lambda x: x["ttl"], addresses) )
-
-            # IPv4 addresses are already in a string form in the data attribute
-            self.addHostToCache(host, map(lambda x: x["data"], filter(lambda y: y["typename"] == "A", addresses )))
-            # while IPv6 addresses are represented in their network representation, need to be converted
-            self.addHostToCache(host, map(lambda x: socket.inet_ntop(socket.AF_INET6, x["data"]),
-                                          filter(lambda y: y["typename"] == "AAAA", addresses)))
-        else:
-            # no records, cache failure for negative TTL secs
-            ttl = answer.authority[0]["data"][6][1]
-            log(None, CORE_DEBUG, 6, "No such host found; host='%s'", host)
-
-        # set expiry
-        self.expires[host] = now + ttl
-
-    def updateCache(self, now):
-        """<method internal="yes">
-        </method>
-        """
-        for host in self.hosts:
-            if now < self.expires.get(host, -1.0):
-                log(None, CORE_DEBUG, 6, "Host already in DNS matcher cache and within TTL; host='%s'", host)
-            else:
-                log(None, CORE_INFO, 5, "Host not in DNS matcher cache or has expired, doing lookup; host='%s'", host)
-                self.updateCachedHost(host, now)
+        self.cache = ResolverCache(DNSResolver())
 
     def checkMatch(self, str):
         """<method internal="yes"/>
         """
-        self.updateCache(time.time())
+        res = self.cache.lookupAddress(str)
 
-        if self.cache_address_to_names.has_key(str):
+        if res is not None:
             return TRUE
         else:
             return FALSE

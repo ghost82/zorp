@@ -1,8 +1,18 @@
-LIBS=@SOCK_LIBS@ @GLIB_LIBS@
-sbin_PROGRAMS = zorpctl
+#sbin_SCRIPTS = zorpctl
 
-zorpctl_SOURCES = main.c szig.c zorpctl.h szig.h
+sysconf_DATA = instances.conf.sample zorpctl.conf
 
-sysconf_DATA = instances.conf.sample zorpctl.conf.sample
+pkgdatadir = @ZORPCTL_PYTHON_DIR@
 
-EXTRA_DIST = $(sysconf_DATA)
+pkgdata_DATA = __init__.py   \
+	CommandResults.py    \
+	Instances.py         \
+	PluginAlgorithms.py  \
+	ProcessAlgorithms.py \
+	SZIGMessages.py      \
+	szig.py              \
+	UInterface.py        \
+	utils.py             \
+	ZorpctlConf.py
+
+EXTRA_DIST = $(pkgdata_DATA) $(sysconf_DATA) $(sbin_SCRIPTS)

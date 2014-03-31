@@ -5,6 +5,8 @@
 #include <zorp/stream.h>
 #include <zorp/sockaddr.h>
 
+struct ZDispatchBind;
+
 enum
 {
   ZD_PROTO_AUTO = 0,
@@ -19,7 +21,7 @@ typedef struct _ZConnection
   ZSockAddr *remote; /* the peer's address */
   ZSockAddr *local;  /* the explicit local address (no wildcard port spec) */
   ZSockAddr *dest;   /* the original destination of the client */
-  struct _ZDispatchBind *dispatch_bind;
+  ZDispatchBind *dispatch_bind;
 } ZConnection;
 
 ZConnection *z_connection_new(void);

@@ -1,12 +1,11 @@
 ############################################################################
 ##
-## Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-## 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or modify
-## it under the terms of the GNU General Public License as published by
-## the Free Software Foundation; either version 2 of the License, or
-## (at your option) any later version.
+## This program is free software; you can redistribute it and/or
+## modify it under the terms of the GNU General Public License
+## as published by the Free Software Foundation; either version 2
+## of the License, or (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,8 +14,7 @@
 ##
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-##
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 ##
 ## Author  : sasa
 ## Auditor :
@@ -103,7 +101,7 @@ QUIT
       </example>
     </section>
   </section>
-  <section id="ftp_proxy_behavior">
+  <section xml:id="ftp_proxy_behavior">
     <title>Proxy behavior</title>
       <para>
         FtpProxy is a module built for parsing commands of the Control Channel in the FTP protocol. It reads the REQUEST at the client side, parses it and - if the local security policy permits - sends it to the server.
@@ -112,7 +110,7 @@ QUIT
       <para>
         The default low-level proxy implementation (AbstractFtpProxy) denies all requests by default. Different commands and/or responses can be enabled by using one of the several predefined proxy classes which are suitable for most tasks. Alternatively, use of the commands can be permitted individually using different attributes. This is detailed in the following two sections.
       </para>
-      <section id="ftp_commands">
+      <section xml:id="ftp_commands">
         <title>Configuring policies for FTP commands and responses</title>
           <para>
             Changing the default behavior of commands can be done by
@@ -137,14 +135,14 @@ QUIT
                 return FTP_REQ_REJECT</synopsis>
           </example>
       </section>
-      <section id="ftp_features">
+      <section xml:id="ftp_features">
         <title>Configuring policies for FTP features and FTPS support</title>
           <para>
             FTP servers send the list of supported features to the clients. For example, proftpd supports the following features: <parameter>LANG en, MDTM, UTF8, AUTH TLS, PBSZ, PROT, REST STREAM, SIZE</parameter>. Zorp can change the default behavior of Ftp features using the hash attribute <parameter>features</parameter>, indexed by the name of the feature (e.g.: UTF8 or AUTH TLS).
              The possible actions are shown in the table below. See <xref linkend="proxy_policies"/> for details.</para>
              <para>The built-in Ftp proxies of Zorp permit the use of every feature by default.</para>
              <inline type="actiontuple" target="action.ftp.feat"/>
-            <section id="configuring-ftps">
+            <section xml:id="configuring-ftps">
             <title>Enabling FTPS connections</title>
                 <para>For FTPS connections to operate correctly, the FTP server and client applications must comply to the <emphasis>FTP Security Extensions (RFC 2228)</emphasis> and <emphasis>Securing FTP with TLS (RFC 4217)</emphasis> RFCs.</para>
                 <para>For FTPS connections, the <parameter>AUTH TLS, PBSZ, PROT</parameter> features must be accepted. Also, STARTTLS support must be properly configured. See <xref linkend="configuring-ssl"/> for details.</para>
@@ -166,7 +164,7 @@ QUIT
                         </listitem>
                     </itemizedlist>
                 </note>
-                <example id="example_ftps">
+                <example xml:id="example_ftps">
                     <title>Configuring FTPS support</title>
                     <para>This example is a standard FtpProxy with FTPS support enabled.</para>
                    <synopsis>class FtpsProxy(FtpProxy):
@@ -176,14 +174,14 @@ QUIT
                 </example>
             </section>
       </section>
-      <section id="ftp_stacking">
+      <section xml:id="ftp_stacking">
       <title>Stacking</title>
       <para>
       The available stacking modes for this proxy module are listed in the following table. For additional information on stacking, see <xref linkend="proxy_stacking"/>.
       </para>
       <inline type="actiontuple" target="action.ftp.stk"/>
       </section>
-      <section id="ftp_inband_authentication">
+      <section xml:id="ftp_inband_authentication">
           <title>Configuring inband authentication</title>
           <para>Starting with Zorp 3.3FR1, the Ftp proxy supports <link linkend="python.Auth.InbandAuthentication">inband authentication</link> as well to use the built-in authentication method of the FTP and FTPS protocols to authenticate the client. The authentication itself is performed by the ZAS backend configured for the service.</para>
           <para>If the client uses different usernames on ZAS and the remote server (e.g., he uses his own username to authenticate to ZAS, but anonymous on the target FTP server), the client must specify the usernames and passwords in the following format:</para>
@@ -201,7 +199,7 @@ QUIT
                 </warning>
       </section>
   </section>
-  <section id="ftp_standards">
+  <section xml:id="ftp_standards">
     <title>Related standards</title>
       <para>
         <itemizedlist>
@@ -392,7 +390,6 @@ from Zorp import *
 from Plug import PlugProxy
 from Proxy import Proxy, proxyLog
 from SockAddr import SockAddrInet, SockAddrInetRange
-from Session import StackedSession
 from Stream import Stream
 
 FTP_DATA_KEEP    = 0

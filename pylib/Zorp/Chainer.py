@@ -1,12 +1,11 @@
 ############################################################################
 ##
-## Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-## 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or modify
-## it under the terms of the GNU General Public License as published by
-## the Free Software Foundation; either version 2 of the License, or
-## (at your option) any later version.
+## This program is free software; you can redistribute it and/or
+## modify it under the terms of the GNU General Public License
+## as published by the Free Software Foundation; either version 2
+## of the License, or (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,8 +14,7 @@
 ##
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-##
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 ##
 ############################################################################
 
@@ -257,7 +255,7 @@ in a roundrobin fashion.</para>
         </method>
         """
         protocol = self.protocol
-        if protocol == 0:
+        if protocol == ZD_PROTO_AUTO:
             protocol = session.protocol
         if remote.port == 0:
             remote.port = session.client_local.port
@@ -293,14 +291,7 @@ in a roundrobin fashion.</para>
                 log(session.session_id, CORE_SESSION, 3,
                     "Server connection established; server_fd='%d', server_address='%s', server_zone='%s', server_local='%s', server_protocol='%s'",
                     (session.server_stream.fd, session.server_address, session.server_zone, session.server_local, ZD_PROTO_NAME[protocol]))
-                szigEvent(Z_SZIG_CONNECTION_PROPS,
-                   (Z_SZIG_TYPE_CONNECTION_PROPS,
-                      (session.service.name, session.instance_id, 0, 0, {
-                        'server_address': str(session.server_address),
-                        'server_local': str(session.server_local),
-                        'server_zone': session.server_zone.getName(),
-                        }
-                 )))
+                session.registerServerAddress()
 
             return session.server_stream
         raise DACException('Server connection is not permitted')
@@ -988,11 +979,10 @@ class SideStackChainer(AbstractChainer):
 
             session.server_stream = streams[0]
             session.server_stream.name = session.owner.session_id + "/leftside"
-            ss = StackedSession(session, self.right_chainer)
             streams[0] = None
+            ss = StackedSession(session, self.right_chainer)
             ss.client_stream = streams[1]
             ss.client_stream.name = ss.session_id + "/rightside"
-            ss.server_stream = None
             streams[1] = None
             ## LOG ##
             # This message indicates that side stacking was successful.

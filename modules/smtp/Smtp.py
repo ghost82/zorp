@@ -1,12 +1,11 @@
 ############################################################################
 ##
-## Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-## 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or modify
-## it under the terms of the GNU General Public License as published by
-## the Free Software Foundation; either version 2 of the License, or
-## (at your option) any later version.
+## This program is free software; you can redistribute it and/or
+## modify it under the terms of the GNU General Public License
+## as published by the Free Software Foundation; either version 2
+## of the License, or (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,8 +14,7 @@
 ##
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-##
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 ##
 ## Author  : SaSa
 ## Auditor :
@@ -136,7 +134,7 @@ QUIT
           SmtpProxy), or can be customized as required.
         </para>
       </section>
-      <section id="smtp_policies">
+      <section xml:id="smtp_policies">
          <title>Configuring policies for SMTP commands and responses</title>
           <para>
             Changing the default behavior of commands can be done by
@@ -149,7 +147,7 @@ QUIT
          </para>
 
       </section>
-       <section id="smtp_stacking">
+       <section xml:id="smtp_stacking">
       <title>Stacking</title>
       <para>
       The available stacking modes for this proxy module are listed in the following table. For additional information on stacking, see <xref linkend="proxy_stacking"/>.

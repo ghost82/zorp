@@ -1,7 +1,4 @@
-/* lib/zorp/zorpconfig.h.in.  Generated from configure.in by autoheader.  */
-
-/* ADP Alerting framework is found */
-#undef ALERTING_ENABLED
+/* lib/zorp/zorpconfig.h.in.  Generated from configure.ac by autoheader.  */
 
 /* Zorp brochure version */
 #undef BROCHURE_VERSION
@@ -21,14 +18,14 @@
 /* Enable trace messages */
 #undef ENABLE_TRACE
 
+/* define if the compiler supports basic C++11 syntax */
+#undef HAVE_CXX11
+
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 
 /* Define to 1 if you have the `gethostbyname_r' function. */
 #undef HAVE_GETHOSTBYNAME_R
-
-/* Define to 1 if you have the <google/coredumper.h> header file. */
-#undef HAVE_GOOGLE_COREDUMPER_H
 
 /* Define to 1 if you have the `inet_aton' function. */
 #undef HAVE_INET_ATON
@@ -50,9 +47,6 @@
 
 /* Zorp may enable core_dumping Linux 2.4- */
 #undef HAVE_PR_SET_DUMPABLE
-
-/* Define to 1 if you have the <Python.h> header file. */
-#undef HAVE_PYTHON_H
 
 /* Define to 1 if you have the `select' function. */
 #undef HAVE_SELECT

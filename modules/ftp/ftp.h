@@ -1,11 +1,10 @@
 /***************************************************************************
  *
- * Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
- * 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 as published
- * by the Free Software Foundation.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation.
  *
  * Note that this permission is granted for only version 2 of the GPL.
  *
@@ -20,7 +19,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  *
  ***************************************************************************/
 
@@ -111,7 +110,7 @@ enum ftp_state_enum {
   FTP_STATE_MAX
 };
 
-static gchar *ftp_state_names[] = {
+static const gchar *ftp_state_names[] = {
   "CONNECT",
   "LOGIN",
   "LOGIN_U",
@@ -261,7 +260,7 @@ typedef struct _FtpProxy
   guint max_continuous_line;
 
   /* Data connection protect */
-  GMutex *lock;
+  GMutex lock;
 
   gboolean ftp_data_hangup;
 
@@ -323,8 +322,8 @@ extern ZClass FtpProxy__class;
 
 extern Ftp_message ftp_know_messages[];
 
-gboolean ftp_data_prepare_listen(FtpProxy *self, gint side);
-gboolean ftp_data_prepare_connect(FtpProxy *self, gint side);
+gboolean ftp_data_prepare_listen(FtpProxy *self, ZEndpoint side);
+gboolean ftp_data_prepare_connect(FtpProxy *self, ZEndpoint side);
 void ftp_data_start(FtpProxy *self);
 void ftp_data_reset(FtpProxy *self);
 
@@ -333,12 +332,12 @@ void ftp_state_both(FtpProxy *self);
 gboolean ftp_data_transfer(FtpProxy *self, ZStream *from_stream, ZStream *to_stream);
 
 gchar *ftp_answer_setup(FtpProxy *self, gchar *answer_c, gchar *answer_p);
-gboolean ftp_answer_write(FtpProxy *self, gchar *msg);
+gboolean ftp_answer_write(FtpProxy *self, const gchar *msg);
 gboolean ftp_answer_write_with_setup(FtpProxy *self, gchar *answer_c, gchar *answer_p);
 
 void ftp_state_set(FtpProxy *self, guint order);
 
-static inline gchar *
+static inline const gchar *
 ftp_proto_state_name(const enum ftp_state_enum state)
 {
   return ftp_state_names[state];

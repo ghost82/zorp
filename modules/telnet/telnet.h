@@ -1,11 +1,10 @@
 /***************************************************************************
  *
- * Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
- * 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 as published
- * by the Free Software Foundation.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation.
  *
  * Note that this permission is granted for only version 2 of the GPL.
  *
@@ -20,7 +19,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  *
  ***************************************************************************/
 
@@ -32,11 +31,9 @@
 #include <zorp/poll.h>
 #include <zorp/dimhash.h>
 #include <zorp/authprovider.h>
-#include <zorp/credentials.h>
 
 #include "telnetprotocol.h"
 #include "telnetlineedit.h"
-
 
 /* Telnet command codes */
 
@@ -206,6 +203,8 @@ typedef struct _TelnetProxy
 
   ZAuthProvider *auth;          /**< inband authentication provider */
 
+  gboolean auth_server;         /**< server user is authenticated in Zorp too */
+
   /* not zero for a transparent proxy */
   guint transparent;
 
@@ -219,29 +218,29 @@ typedef struct _TelnetProxy
   /* port we're using to connect to the hostname (in case of inband routing) */
   guint server_port;
   /* username we're using to connect to the hostname (in case of inband routing) */
-  GString *server_username;
+  GString *username;
 
   /* username we're using for gateway authentication */
-  GString *gw_username;
+  GString *gateway_user;
   /* true if the username came from the GW_USER environment variable */
-  gboolean gw_username_is_from_env;
+  gboolean gateway_user_is_from_env;
 
   /* password to use for gateway authentication */
-  GString *gw_password;
+  GString *gateway_password;
   /* true if the password came from the GW_PASSWD environment variable */
-  gboolean gw_password_is_from_env;
+  gboolean gateway_password_is_from_env;
   /* number of unsuccessful gateway authentication attempts */
   guint gw_authentication_failures;
 
-  /* greeting to print to client in non-transparent mode */
-  GString *greeting;
+  /* banner to print to client in non-transparent mode */
+  GString *banner;
 
   /* server name prompt string sent to the client */
   GString *server_name_prompt;
   /* gateway user name prompt string sent to the client for inband auth */
-  GString *gw_username_prompt;
+  GString *gateway_user_prompt;
   /* gateway password prompt string */
-  GString *gw_password_prompt;
+  GString *gateway_password_prompt;
 
   /* Private variables */
   TelnetState             state;

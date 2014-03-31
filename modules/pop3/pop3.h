@@ -1,11 +1,10 @@
 /***************************************************************************
  *
- * Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
- * 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 as published
- * by the Free Software Foundation.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation.
  *
  * Note that this permission is granted for only version 2 of the GPL.
  *
@@ -20,7 +19,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  *
  ***************************************************************************/
 
@@ -78,7 +77,7 @@ typedef guint (*Pop3CmdFunction)(struct _Pop3Proxy *);
 
 typedef struct _Pop3InternalCommands
 {
-  gchar *name;
+  const gchar *name;
   Pop3CmdFunction command_parse;
   gboolean multi_line_response;
   Pop3CmdFunction response_parse;
@@ -158,7 +157,7 @@ extern ZClass Pop3Proxy__class;
 /* pop3.c */
 void pop3_response_reject(Pop3Proxy *self, gchar *error_msg);
 void pop3_response_write(Pop3Proxy *self);
-GIOStatus pop3_write_client(Pop3Proxy *self, char *msg);
+GIOStatus pop3_write_client(Pop3Proxy *self, const char *msg);
 
 void pop3_error_msg(Pop3Proxy *self, gchar *additional_info);
 

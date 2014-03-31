@@ -1,12 +1,11 @@
 ############################################################################
 ##
-## Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-## 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or modify
-## it under the terms of the GNU General Public License as published by
-## the Free Software Foundation; either version 2 of the License, or
-## (at your option) any later version.
+## This program is free software; you can redistribute it and/or
+## modify it under the terms of the GNU General Public License
+## as published by the Free Software Foundation; either version 2
+## of the License, or (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,8 +14,7 @@
 ##
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-##
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 ##
 ############################################################################
 """
@@ -104,7 +102,7 @@
 """
 from Zorp import *
 from Zone import Zone
-from Session import MasterSession
+from Session import MasterSession, ClientInfo
 from Cache import ShiftCache
 from SockAddr import SockAddrInet, SockAddrInet6
 from Subnet import Subnet
@@ -115,7 +113,7 @@ from traceback import print_exc
 import Zorp, SockAddr
 import collections, sys
 
-import kzorp.kzorp_netlink as kzorp
+import kzorp.messages as kzorp
 import socket
 
 listen_hook = None
@@ -229,74 +227,20 @@ class BaseDispatch(object):
                 raise ValueError, "Invalid port range: '%s'" % (p)
         return ranges
 
-    def accepted(self, stream, client_address, client_local, client_listen):
-        """
-        <method internal="yes">
-          <summary>Callback to inform the python layer about incoming connections.</summary>
-          <description>
-            <para>
-              This callback is called by the core when a connection is
-              accepted. Its primary function is to check access control
-              (whether the client is permitted to connect to this port),
-              and to spawn a new session to handle the connection.
-            </para>
-            <para>
-              Exceptions raised due to policy violations are handled here.
-              Returns TRUE if the connection is accepted
-            </para>
-          </description>
-          <metainfo>
-            <arguments>
-              <argument maturity="stable">
-                <name>stream</name>
-                <type></type>
-                <description>the stream of the connection to the client</description>
-              </argument>
-              <argument maturity="stable">
-                <name>client_address</name>
-                <type></type>
-                <description>the address of the client</description>
-              </argument>
-              <argument maturity="stable">
-                <name>client_local</name>
-                <type></type>
-                <description>client local address (contains the original destination if transparent)</description>
-              </argument>
-              <argument maturity="stable">
-                <name>client_listen</name>
-                <type></type>
-                <description>the address where the listener was bound to</description>
-              </argument>
-            </arguments>
-          </metainfo>
-        </method>
-        """
-        if stream == None:
-            return None
-        session = None
+    @staticmethod
+    def _startInstance(client_info, service):
         try:
-            session = MasterSession()
-            session.setProtocol(client_listen.protocol)
-            stream.name = session.session_id
-            session.client_stream = stream
-            session.client_local = client_local
-            session.client_listen = client_listen
-            session.setClientAddress(client_address)
+            session = MasterSession(protocol=client_info.client_listen.protocol, service=service, client_info=client_info, instance_id=getInstanceId(service.name))
 
-            service = self.getService(session)
-            if not service:
-                raise DACException, "No applicable service found"
-            session.setService(service)
-
-            service.router.routeConnection(session)
+            client_info.client_stream.name = session.session_id
 
             ## LOG ##
-            # This message indicates that a new connection is accepted.
+            # This message reports that the given service is started, because of a new connection.
             ##
-            log(session.session_id, CORE_DEBUG, 8, "Connection accepted; client_address='%s'", (client_address,))
-            sys.exc_clear()
-            stream.keepalive = service.keepalive & Z_KEEPALIVE_CLIENT;
-            if session.service.startInstance(session):
+            #log(self.session_id, CORE_SESSION, 5, "Starting service; name='%s'", service.name)
+            log(session.session_id, CORE_SESSION, 5, "Starting service; name='%s'", service.name)
+
+            if service.startInstance(session):
                 return TRUE
 
         except ZoneException, s:
@@ -345,6 +289,69 @@ class BaseDispatch(object):
             session.destroy()
 
         return None
+
+
+    def accepted(self, stream, client_address, client_local, client_listen):
+        """
+        <method internal="yes">
+          <summary>Callback to inform the python layer about incoming connections.</summary>
+          <description>
+            <para>
+              This callback is called by the core when a connection is
+              accepted. Its primary function is to check access control
+              (whether the client is permitted to connect to this port),
+              and to spawn a new session to handle the connection.
+            </para>
+            <para>
+              Exceptions raised due to policy violations are handled here.
+              Returns TRUE if the connection is accepted
+            </para>
+          </description>
+          <metainfo>
+            <arguments>
+              <argument maturity="stable">
+                <name>stream</name>
+                <type></type>
+                <description>the stream of the connection to the client</description>
+              </argument>
+              <argument maturity="stable">
+                <name>client_address</name>
+                <type></type>
+                <description>the address of the client</description>
+              </argument>
+              <argument maturity="stable">
+                <name>client_local</name>
+                <type></type>
+                <description>client local address (contains the original destination if transparent)</description>
+              </argument>
+              <argument maturity="stable">
+                <name>client_listen</name>
+                <type></type>
+                <description>the address where the listener was bound to</description>
+              </argument>
+            </arguments>
+          </metainfo>
+        </method>
+        """
+        if stream == None:
+            return None
+        session = None
+        client_info = ClientInfo(client_stream=stream,
+                                 client_local=client_local,
+                                 client_listen=client_listen,
+                                 client_address=client_address)
+
+        service = self.getService(client_info)
+        if not service:
+            raise DACException, "No applicable service found"
+
+        ## LOG ##
+        # This message indicates that a new connection is accepted.
+        ##
+        #log(session.session_id, CORE_DEBUG, 8, "Connection accepted; client_address='%s'", (client_address,))
+        log(None, CORE_DEBUG, 8, "Connection accepted; client_address='%s'", (client_address,))
+
+        return self._startInstance(client_info, service)
 
     def getService(self, session):
         """
@@ -613,7 +620,7 @@ class Dispatcher(BaseDispatch):
         self.bindto = bindto
         super(Dispatcher, self).__init__(Globals.instance_name, bindto, **kw)
 
-    def getService(self, session):
+    def getService(self, client_info):
         """
         <method internal="yes">
           <summary>Returns the service associated with the listener</summary>
@@ -625,9 +632,9 @@ class Dispatcher(BaseDispatch):
           <metainfo>
             <arguments>
               <argument maturity="stable">
-                <name>session</name>
+                <name>client_info</name>
                 <type></type>
-                <description>session reference</description>
+                <description>client_info reference</description>
               </argument>
             </arguments>
           </metainfo>
@@ -707,30 +714,30 @@ class ZoneDispatcher(Dispatcher):
         self.services = services
         self.cache = ShiftCache('sdispatch(%s)' % str(bindto), config.options.zone_dispatcher_shift_threshold)
 
-    def getService(self, session):
+    def getService(self, client_info):
         """
         <method internal="yes">
           <summary>Virtual function which returns the service to be ran</summary>
           <description>
             <para>
               This function is called by our base class to find out the
-              service to be used for the current session. It uses the
-              client zone name to decide which service to use.
+              service to be used. It uses the client zone name to decide
+              which service to use.
             </para>
           </description>
           <metainfo>
             <arguments>
               <argument maturity="stable">
-                <name>session</name>
+                <name>client_info</name>
                 <type></type>
-                <description>session we are starting</description>
+                <description>Client connection info</description>
               </argument>
             </arguments>
           </metainfo>
         </method>
         """
 
-        cache_ndx = session.client_zone.getName()
+        cache_ndx = client_info.client_zone.getName()
 
         cached = self.cache.lookup(cache_ndx)
         if cached == 0:
@@ -741,13 +748,13 @@ class ZoneDispatcher(Dispatcher):
             # @see: Listener.ZoneListener
             # @see: Receiver.ZoneReceiver
             ##
-            log(None, CORE_POLICY, 2, "No applicable service found for this client zone (cached); bindto='%s', client_zone='%s'", (self.bindto, session.client_zone))
+            log(None, CORE_POLICY, 2, "No applicable service found for this client zone (cached); bindto='%s', client_zone='%s'", (self.bindto, client_info.client_zone))
         elif cached:
             return cached
 
         src_hierarchy = {}
         if self.follow_parent:
-            z = session.client_zone
+            z = client_info.client_zone
             level = 0
             while z:
                 src_hierarchy[z.getName()] = level
@@ -756,7 +763,7 @@ class ZoneDispatcher(Dispatcher):
             src_hierarchy['*'] = level
             max_level = level + 1
         else:
-            src_hierarchy[session.client_zone.getName()] = 0
+            src_hierarchy[client_info.client_zone.getName()] = 0
             src_hierarchy['*'] = 1
             max_level = 10
 
@@ -786,7 +793,7 @@ class ZoneDispatcher(Dispatcher):
             # @see: Listener.ZoneListener
             # @see: Receiver.ZoneReceiver
             ##
-            log(None, CORE_POLICY, 2, "No applicable service found for this client zone; bindto='%s', client_zone='%s'", (self.bindto, session.client_zone))
+            log(None, CORE_POLICY, 2, "No applicable service found for this client zone; bindto='%s', client_zone='%s'", (self.bindto, client_info.client_zone))
 
         self.cache.store(cache_ndx, s)
         return s
@@ -895,14 +902,14 @@ class CSZoneDispatcher(Dispatcher):
         self.services = services
         self.cache = ShiftCache('csdispatch(%s)' % str(self.bindto), config.options.zone_dispatcher_shift_threshold)
 
-    def getService(self, session):
+    def getService(self, client_info):
         """
         <method internal="yes">
           <summary>Virtual function which returns the service to be ran</summary>
           <description>
             <para>
               This function is called by our base class to find out the
-              service to be used for the current session. It uses the
+              service to be used for the current client_info. It uses the
               client and the server zone name to decide which service to
               use.
             </para>
@@ -910,17 +917,17 @@ class CSZoneDispatcher(Dispatcher):
           <metainfo>
             <arguments>
               <argument maturity="stable">
-                <name>session</name>
+                <name>client_info</name>
                 <type></type>
-                <description>session we are starting</description>
+                <description>Client connection info</description>
               </argument>
             </arguments>
           </metainfo>
         </method>
         """
-        dest_zone = Zone.lookup(session.client_local)
+        dest_zone = Zone.lookup(client_info.client_local)
 
-        cache_ndx = (session.client_zone.getName(), dest_zone.getName())
+        cache_ndx = (client_info.client_zone.getName(), dest_zone.getName())
 
         cached = self.cache.lookup(cache_ndx)
         if cached == 0:
@@ -931,14 +938,14 @@ class CSZoneDispatcher(Dispatcher):
             # @see: Listener.CSZoneListener
             # @see: Receiver.CSZoneReceiver
             ##
-            log(None, CORE_POLICY, 2, "No applicable service found for this client & server zone (cached); bindto='%s', client_zone='%s', server_zone='%s'", (self.bindto, session.client_zone, dest_zone))
+            log(None, CORE_POLICY, 2, "No applicable service found for this client & server zone (cached); bindto='%s', client_zone='%s', server_zone='%s'", (self.bindto, client_info.client_zone, dest_zone))
         elif cached:
             return cached
 
         src_hierarchy = {}
         dst_hierarchy = {}
         if self.follow_parent:
-            z = session.client_zone
+            z = client_info.client_zone
             level = 0
             while z:
                 src_hierarchy[z.getName()] = level
@@ -955,7 +962,7 @@ class CSZoneDispatcher(Dispatcher):
             dst_hierarchy['*'] = level
             max_level = max(max_level, level + 1)
         else:
-            src_hierarchy[session.client_zone.getName()] = 0
+            src_hierarchy[client_info.client_zone.getName()] = 0
             src_hierarchy['*'] = 1
             dst_hierarchy[dest_zone.getName()] = 0
             dst_hierarchy['*'] = 1

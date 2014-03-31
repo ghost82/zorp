@@ -1,5 +1,5 @@
-/* C code produced by gperf version 3.0.3 */
-/* Command-line: /usr/bin/gperf -e , -t -N z_logtag_lookup_gperf logtags.gperf  */
+/* C++ code produced by gperf version 3.0.4 */
+/* Command-line: /usr/bin/gperf -e , -L C++ -Z LogTagHash -t -N lookup logtags.gperf  */
 /* Computed positions: -k'1-2,6,$' */
 
 #if !((' ' == 32) && ('!' == 33) && ('"' == 34) && ('#' == 35) \
@@ -26,7 +26,7 @@
       && ('w' == 119) && ('x' == 120) && ('y' == 121) && ('z' == 122) \
       && ('{' == 123) && ('|' == 124) && ('}' == 125) && ('~' == 126))
 /* The character set is not based on ISO-646.  */
-error "gperf generated tables don't work with this execution character set. Please report a bug to <bug-gnu-gperf@gnu.org>."
+#error "gperf generated tables don't work with this execution character set. Please report a bug to <bug-gnu-gperf@gnu.org>."
 #endif
 
 #line 4 "logtags.gperf"
@@ -39,17 +39,16 @@ struct tagid { char *name; int id; };
 #define MAX_HASH_VALUE 318
 /* maximum key range = 310, duplicates = 0 */
 
-#ifdef __GNUC__
-__inline
-#else
-#ifdef __cplusplus
-inline
-#endif
-#endif
-static unsigned int
-hash (str, len)
-     register const char *str;
-     register unsigned int len;
+class LogTagHash
+{
+private:
+  static inline unsigned int hash (const char *str, unsigned int len);
+public:
+  static const struct tagid *lookup (const char *str, unsigned int len);
+};
+
+inline unsigned int
+LogTagHash::hash (register const char *str, register unsigned int len)
 {
   static const unsigned short asso_values[] =
     {
@@ -83,16 +82,8 @@ hash (str, len)
   return len + asso_values[(unsigned char)str[5]] + asso_values[(unsigned char)str[1]+1] + asso_values[(unsigned char)str[0]] + asso_values[(unsigned char)str[len - 1]];
 }
 
-#ifdef __GNUC__
-__inline
-#ifdef __GNUC_STDC_INLINE__
-__attribute__ ((__gnu_inline__))
-#endif
-#endif
 const struct tagid *
-z_logtag_lookup_gperf (str, len)
-     register const char *str;
-     register unsigned int len;
+LogTagHash::lookup (register const char *str, register unsigned int len)
 {
   static const struct tagid wordlist[] =
     {

@@ -1,0 +1,333 @@
+#!/usr/bin/env python2.7
+
+############################################################################
+##
+## COPYRIGHTHERE
+##
+############################################################################
+
+"""
+KZorp Daemon
+
+This is a stand alone daemon with the following responsibilities:
+
+ - initial zone download to KZorp
+ - continuous update of hostanme par of zones in KZorp
+
+"""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import generators
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import nested_scopes
+from __future__ import with_statement
+
+import sys
+sys.dont_write_bytecode = True
+
+import daemon
+from daemon.pidlockfile import PIDLockFile
+import itertools
+
+import os
+import pwd
+
+import time
+import prctl
+import traceback
+import radix
+
+import Zorp.Common as Common
+import Zorp.ResolverCache as ResolverCache
+
+import kzorp.communication
+import kzorp.messages
+from kzorp.netlink import NetlinkException
+
+from Zorp.Zone import Zone
+from Zorp.InstancesConf import InstancesConf
+from zorpctl.ZorpctlConf import ZorpctlConfig
+
+# CUTTED ZONEDOWNLOADER
+
+# CUTTED DINZONEHANDLER
+
+
+
+class ZoneDownload(kzorp.communication.Adapter):
+
+    def __init__(self):
+        super(ZoneDownload, self).__init__()
+
+    def initial(self, messages):
+        self.send_messages_in_transaction([kzorp.messages.KZorpFlushZonesMessage(), ] + messages)
+
+    def update(self, messages):
+        self.send_messages_in_transaction(messages)
+
+class DynamicZoneHandler(kzorp.messages.ZoneUpdateMessageCreator):
+
+    def __init__(self, zones, dnscache):
+        super(DynamicZoneHandler, self).__init__(zones, dnscache)
+
+    def setup(self):
+        with ZoneDownload() as zone_download:
+            messages = self.create_zone_static_address_initialization_messages()
+            zone_download.initial(messages)
+        self.setup_dns_cache()
+        with ZoneDownload() as zone_download:
+            messages = self.create_zone_dynamic_address_initialization_messages()
+            zone_download.update(messages)
+
+class ConfigurationHandler():
+    def __init__(self):
+        self.instances_conf = InstancesConf()
+        self.init_state()
+
+    def _import_zones(self):
+        import os
+        policy_dirs = set()
+        zorpctlconf = ZorpctlConfig.Instance()
+
+        try:
+            for instance in self.instances_conf:
+                policy_dirs.add(os.path.dirname(instance.zorp_process.args.policy))
+        except IOError, e:
+            configdir = zorpctlconf['ZORP_SYSCONFDIR']
+            Common.log(None, Common.CORE_INFO, 1, "Unable to open instances.conf, falling back to configuration dir; error='%s', fallback='%s'" % (e, configdir))
+            policy_dirs.add(configdir)
+
+        if len(policy_dirs) > 1:
+            raise ImportError('Different directories of policy files found in instances.conf; policy_dirs=%s' % policy_dirs)
+        if len(policy_dirs) == 0:
+            Common.log(None, Common.CORE_INFO, 1, "No instances defined; instances_conf='%s'" % self.instances_conf.instances_conf_path)
+            configdir = zorpctlconf['ZORP_SYSCONFDIR']
+            Common.log(None, Common.CORE_INFO, 1, "Falling back to configuration directory; fallback='%s'" % (configdir,))
+            policy_dirs.add(configdir)
+
+        import imp
+        policy_dir = policy_dirs.pop()
+        policy_module_name = 'zones'
+        try:
+            fp, pathname, description = imp.find_module(policy_module_name, [policy_dir, ])
+            imp.load_module(policy_module_name, fp, pathname, description)
+        except ImportError, e:
+            fp = None
+            Common.log(None, Common.CORE_INFO, 1, "Unable to import zones.py; error='%s'" % (e))
+            raise e
+        finally:
+            if fp:
+                fp.close()
+
+    def init_state(self):
+        self.saved_zones = {}
+        self.saved_subnet_tree = radix.Radix()
+
+    def save_state(self):
+        self.saved_zones = Zone.zones
+        self.saved_subnet_tree = Zone.zone_subnet_tree
+
+    def restore_state(self):
+        Zone.zones = self.saved_zones
+        Zone.zone_subnet_tree = self.saved_subnet_tree
+
+    def setup(self):
+        Zone.zones = {}
+        Zone.zone_subnet_tree = radix.Radix()
+        self._import_zones()
+
+    def reload(self):
+        self.setup()
+
+class KeeperDaemonContext(daemon.DaemonContext):
+    def open(self):
+        #inherit capabilities with user change
+        try:
+            prctl.set_keepcaps(True)
+        except OSError, e:
+            Common.log(None, Common.CORE_ERROR, 1, "Unable to drop capabilities; error='%s'" % (e))
+            raise e
+        super(KeeperDaemonContext, self).open()
+
+class Daemon():
+    min_sleep_in_sec = 60
+
+    def __init__(self, user, group):
+        Common.log(None, Common.CORE_INFO, 1, "KZorpd starting up...")
+
+        import grp
+        import pwd
+        zorp_uid = pwd.getpwnam(user).pw_uid
+        zorp_gid = grp.getgrnam(group).gr_gid
+
+        import signal
+        self.context = KeeperDaemonContext(
+            working_directory='/etc/zorp',
+            umask=0o002,
+            uid=zorp_uid,
+            gid=zorp_gid,
+            pidfile=PIDLockFile('/var/run/zorp/kzorpd.pid'),
+            signal_map={
+                         signal.SIGHUP: self.sighup_handler,
+                         signal.SIGINT: self.sigint_handler,
+                         signal.SIGTERM: self.sigterm_handler,
+                       },
+            )
+
+        self.conf_handler = ConfigurationHandler()
+        self.dnscache = ResolverCache.ResolverCache(ResolverCache.DNSResolver())
+        self.zone_handler = None
+        self.checkAndCreatePidfiledir()
+
+    def sigint_handler(self, sig_num, frame):
+        Common.log(None, Common.CORE_INFO, 1, "Received SIGINT, loading static zones")
+        if self.zone_handler:
+            with ZoneDownload() as zone_download:
+                messages = self.zone_handler.create_zone_static_address_initialization_messages()
+                zone_download.initial(messages)
+        else:
+            Common.log(None, Common.CORE_INFO, 1, "Failed to set up zone handler, no static zones loaded")
+        exit(0)
+
+    def sighup_handler(self, sig_num, frame):
+        Common.log(None, Common.CORE_INFO, 1, "Received SIGHUP, reloading configuration")
+        try:
+            self.reload()
+        except BaseException, e:
+            Common.log(None, Common.CORE_ERROR, 1, "Unexpected error; error='%s'" % (traceback.format_exc()))
+
+    def sigterm_handler(self, sig_num, frame):
+        Common.log(None, Common.CORE_INFO, 1, "KZorpd shutting down...")
+        try:
+            self.context.pidfile.break_lock()
+            if self.zone_handler:
+                with ZoneDownload() as zone_download:
+                    messages = self.zone_handler.create_zone_static_address_initialization_messages()
+                    zone_download.initial(messages)
+            else:
+                Common.log(None, Common.CORE_INFO, 1, "Failed to set up zone handler, no static zones loaded")
+        except BaseException, e:
+            Common.log(None, Common.CORE_ERROR, 1, "Unexpected error; error='%s'" % (traceback.format_exc()))
+        finally:
+            exit(0)
+
+    def checkAndCreatePidfiledir(self):
+        zorpctlconf = ZorpctlConfig.Instance()
+        pidfiledir = zorpctlconf['ZORP_PIDFILEDIR']
+        if not os.path.exists(pidfiledir):
+            owner = zorpctlconf['PIDFILE_DIR_OWNER']
+            group = zorpctlconf['PIDFILE_DIR_GROUP']
+            mode = zorpctlconf['PIDFILE_DIR_MODE']
+
+            owner_uid = pwd.getpwnam(owner).pw_uid
+            group_uid = pwd.getpwnam(group).pw_gid
+            mode_oct = int(str(mode), 8)
+
+            os.makedirs(pidfiledir)
+            os.chown(pidfiledir, owner_uid, group_uid)
+            os.chmod(pidfiledir, mode_oct)
+
+    def reinitialize_zone_handler(self):
+        self.zone_handler = DynamicZoneHandler(Zone.zones.values(), self.dnscache)
+        self.zone_handler.setup()
+
+    def setup(self):
+        self.conf_handler.save_state()
+        try:
+            self.conf_handler.setup()
+            self.reinitialize_zone_handler()
+        except (ImportError, NetlinkException) as e:
+            Common.log(None, Common.CORE_ERROR, 1, "Unable to load configuration, keep existing one; error='%s'" % (e))
+            self.conf_handler.restore_state()
+
+        # drop capabilities
+        try:
+            prctl.set_caps((prctl.ALL_CAPS, prctl.CAP_EFFECTIVE, False))
+        except OSError, e:
+            Common.log(None, Common.CORE_ERROR, 1, "Unable to drop capabilities; error='%s'" % (e))
+            raise e
+
+    def reload(self):
+        saved_dnscache = self.dnscache
+        self.conf_handler.save_state()
+        self.dnscache = ResolverCache.ResolverCache(ResolverCache.DNSResolver())
+        try:
+            self.conf_handler.reload()
+            self.reinitialize_zone_handler()
+        except (ImportError, NetlinkException) as e:
+            Common.log(None, Common.CORE_ERROR, 1, "Unable to load configuration, keep existing one; error='%s'" % (e))
+            self.conf_handler.restore_state()
+            self.dnscache = saved_dnscache
+
+    def do_main(self):
+        expired_hostname = None
+        self.setup()
+
+        while True:
+            now = time.time()
+
+            try:
+                self.dnscache.update()
+                try:
+                    expired_hostname, expiration_time = self.dnscache.getNextExpiration()
+                except ValueError, e:
+                    # if no hosts are in the cache, a ValueError is raised, sleep for the minimum time
+                    sleep_sec = self.min_sleep_in_sec
+                    Common.log(None, Common.CORE_DEBUG, 6,
+                               "No hostnames in cache, sleep minimum expiration; sleep_sec='%d'" %
+                               (sleep_sec, ))
+                else:
+                    sleep_sec = max(expiration_time - now, self.min_sleep_in_sec)
+                    Common.log(None, Common.CORE_DEBUG, 6,
+                               "Sleep until next DNS expiration; sleep_sec='%d', host='%s'" %
+                               (sleep_sec, expired_hostname))
+            except KeyError:
+                sleep_sec = self.min_sleep_in_sec
+                Common.log(None, Common.CORE_DEBUG, 6,
+                           "Cache lookup failed, sleep minimum expiration; sleep_sec='%d'" %
+                           (sleep_sec, ))
+            except BaseException, e:
+                sleep_sec = self.min_sleep_in_sec
+                Common.log(None, Common.CORE_ERROR, 1, "Unexpected error; error='%s'" % (traceback.format_exc()))
+            finally:
+                if self.zone_handler is not None:
+                    if expired_hostname is not None:
+                        Common.log(None, Common.CORE_INFO, 4,
+                                   "TTL for host expired, updating host; hostname='%s', ttl='%d'" % (expired_hostname, expiration_time))
+                        with ZoneDownload() as zone_download:
+                            messages = self.zone_handler.create_zone_update_messages(expired_hostname)
+                            zone_download.update(messages)
+                    else:
+                        with ZoneDownload() as zone_download:
+                            messages = self.zone_handler.create_zone_dynamic_address_initialization_messages()
+                            zone_download.update(messages)
+            time.sleep(sleep_sec)
+
+def run(foreground, log_verbosity, user, group):
+    DAEMON = Daemon(user, group)
+
+    if foreground:
+        DAEMON.do_main()
+    else:
+        with DAEMON.context:
+            DAEMON.do_main()
+
+def process_command_line_arguments():
+    import argparse
+
+    parser = argparse.ArgumentParser(description='KZorp daemon')
+    parser.add_argument("-F", "--foreground", action="store_true", dest="foreground", default=False,
+                        help='do not go into the background after initialization (default: %(default)s)')
+    parser.add_argument('-v', '--verbose', action='store', dest='verbose', type=int, default=3,
+                        help='set verbosity level (default: %(default)d)')
+    parser.add_argument('-u', '--user', action='store', dest='user', type=str, default="zorp",
+                        help='set the user to run the deamon as (default: %(default)d)')
+    parser.add_argument('-g', '--group', action='store', dest='group', type=str, default="zorp",
+                        help='set the group to run the deamon as (default: %(default)d)')
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    args = process_command_line_arguments()
+    run(args.foreground, args.verbose, args.user, args.group)

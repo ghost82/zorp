@@ -1,11 +1,10 @@
 /***************************************************************************
  *
- * Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
- * 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 as published
- * by the Free Software Foundation.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation.
  *
  * Note that this permission is granted for only version 2 of the GPL.
  *
@@ -20,7 +19,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  *
  ***************************************************************************/
 
@@ -34,7 +33,6 @@
 #include <zorp/pydict.h>
 #include <zorp/dispatch.h>
 #include <zorp/poll.h>
-#include <zorp/audit.h>
 #include <zorp/thread.h>
 #include <zorp/proxyssl.h>
 
@@ -81,9 +79,9 @@ enum
 #define Z_VAR_TYPE_INT64        0x00000B00      /* variable is an int64 */
 
 /** The authentication type of z_proxy_user_authenticated() (#ZProxy.userAuthenticated()), indicating which type of authentication
- * occured before calling z_proxy_user_authenticated(). Its "auth_info" parameter is also changed
+ * occurred before calling z_proxy_user_authenticated(). Its "auth_info" parameter is also changed
  */
-typedef enum _ZProxyUserAuthType
+enum ZProxyUserAuthType
 {
   Z_PROXY_USER_AUTHENTICATED_NONE,               /**< The auth type is not explicitly specified, none of the others.
                                                   *  From Zorp, the auth_info parameter is "none", from Python this can be any other, too
@@ -91,17 +89,19 @@ typedef enum _ZProxyUserAuthType
   Z_PROXY_USER_AUTHENTICATED_INBAND,             /**< The authentication is an inband authentication. Auth_info param is "inband". */
   Z_PROXY_USER_AUTHENTICATED_GATEWAY,       /**< The authentication is a gateway authentication. Auth_info param is "gw-auth". */
   Z_PROXY_USER_AUTHENTICATED_SERVER,             /**< The authentication is a server-side authentication. Auth_info param is "server". */
-} ZProxyUserAuthType;
+};
 
-typedef struct _ZProxyModuleFuncs ZProxyModuleFuncs;
-typedef struct _ZProxyParams ZProxyParams;
-typedef struct _ZProxyIface ZProxyIface;
-typedef struct _ZProxyFuncs ZProxyFuncs;
-typedef struct _ZProxyGroup ZProxyGroup;
-typedef struct _ZChannelProps ZChannelProps;
+struct ZProxyModuleFuncs;
+struct ZProxyParams;
+struct ZProxyIface;
+struct ZProxyFuncs;
+struct ZProxyGroup;
+struct ZChannelProps;
+struct ZProxy;
 
-struct _ZProxyParams
+struct ZProxyParams
 {
+public:
   const gchar *session_id;
   ZPolicyObj *pyclient;
   ZStream *client;
@@ -109,8 +109,9 @@ struct _ZProxyParams
   ZProxy *parent;
 };
 
-struct _ZProxyFuncs
+struct ZProxyFuncs
 {
+public:
   ZObjectFuncs super;
   gboolean (*config)(ZProxy *self);
   gboolean (*startup)(ZProxy *self);
@@ -122,13 +123,17 @@ struct _ZProxyFuncs
   void (*wakeup)(ZProxy *self);
 };
 
-struct _ZChannelProps
+#define Z_PROXY_FUNCS_FOR_AUDIT(a, b, c)
+
+struct ZChannelProps
 {
+public:
   guint8 tos[EP_DIR_MAX];
 };
 
-struct _ZProxy
+struct ZProxy
 {
+public:
   ZObject super;
   gchar session_id[MAX_SESSION_ID];
   ZThread *proxy_thread;
@@ -151,7 +156,7 @@ struct _ZProxy
   /* the linked list of child proxies */
   GList *child_proxies;
 
-  GStaticMutex interfaces_lock;
+  GMutex interfaces_lock;
   GList *interfaces;
 
   ZProxySsl ssl_opts;
@@ -166,39 +171,40 @@ extern ZClass ZProxy__class;
 typedef ZProxy *(*ZProxyCreateFunc)(ZProxyParams *params);
 typedef void (*ZProxyModulePyInitFunc)(void);
 
-struct _ZProxyModuleFuncs
+struct ZProxyModuleFuncs
 {
+public:
   ZProxyCreateFunc create_proxy;
   ZProxyModulePyInitFunc module_py_init;
 };
 
 /* log functions */
-#define z_proxy_log(self, class, level, format, args...) 		\
+#define z_proxy_log(self, class_, level, format, args...) 		\
   do {									\
     z_object_check_compatible((ZObject *) self, Z_CLASS(ZProxy));	\
     /*NOLOG*/ 								\
-    z_log(((ZProxy *) self)->session_id, class, level, format,  ##args);	\
+    z_log(((ZProxy *) self)->session_id, class_, level, format,  ##args);	\
   } while (0)
 
-#define z_proxy_log_data_dump(self, class, level, buf, len)             \
+#define z_proxy_log_data_dump(self, class_, level, buf, len)             \
   do {									\
     z_object_check_compatible((ZObject *) self, Z_CLASS(ZProxy));	\
     /*NOLOG*/ 								\
-    z_log_data_dump(((ZProxy *)self)->session_id, class, level, buf, len); \
+    z_log_data_dump(((ZProxy *)self)->session_id, class_, level, buf, len); \
   } while (0)
 
-#define z_proxy_pktbuf_data_dump(self, class, level, pktbuf)             \
+#define z_proxy_pktbuf_data_dump(self, class_, level, pktbuf)             \
   do {									\
     z_object_check_compatible((ZObject *) self, Z_CLASS(ZProxy));	\
     /*NOLOG*/ 								\
-    z_pktbuf_data_dump(((ZProxy *)self)->session_id, class, level, pktbuf); \
+    z_pktbuf_data_dump(((ZProxy *)self)->session_id, class_, level, pktbuf); \
   } while (0)
 
-#define z_proxy_log_text_dump(self, class, level, buf, len)             \
+#define z_proxy_log_text_dump(self, class_, level, buf, len)             \
   do {									\
     z_object_check_compatible((ZObject *) self, Z_CLASS(ZProxy));	\
     /*NOLOG*/ 								\
-    z_log_text_dump(((ZProxy *)self)->session_id, class, level, buf, len); \
+    z_log_text_dump(((ZProxy *)self)->session_id, class_, level, buf, len); \
   } while (0)
 
 #if ENABLE_TRACE
@@ -285,7 +291,7 @@ gboolean z_proxy_loop_iteration(ZProxy *self);
 
 /* constructor for ZProxy */
 ZProxy *
-z_proxy_new(ZClass *class, ZProxyParams *params);
+z_proxy_new(ZClass *class_, ZProxyParams *params);
 
 /* free method for ZProxy */
 void z_proxy_free_method(ZObject *s);
@@ -362,9 +368,10 @@ z_proxy_get_state(ZProxy *self)
   return self->status & 0xFF;
 }
 
-/* Root class for proxy specific interfaces */
-struct _ZProxyIface
+/* Root class_ for proxy specific interfaces */
+struct ZProxyIface
 {
+public:
   ZObject super;
   ZProxy *owner;
 };
@@ -372,7 +379,7 @@ struct _ZProxyIface
 typedef ZObjectFuncs ZProxyIfaceFuncs;
 extern ZClass ZProxyIface__class;
 
-ZProxyIface *z_proxy_iface_new(ZClass *class, ZProxy *proxy);
+ZProxyIface *z_proxy_iface_new(ZClass *class_, ZProxy *proxy);
 void z_proxy_iface_free_method(ZObject *s);
 
 /* ZProxyBasicIface */
@@ -383,12 +390,13 @@ void z_proxy_iface_free_method(ZObject *s);
  */
 
 typedef ZProxyIface ZProxyBasicIface;
-typedef struct _ZProxyBasicIfaceFuncs
+struct ZProxyBasicIfaceFuncs
 {
+public:
   ZObjectFuncs super;
   gboolean (*get_var)(ZProxyBasicIface *self, const gchar *var_name, gchar **value);
   gboolean (*set_var)(ZProxyBasicIface *self, const gchar *var_name, gchar *value);
-} ZProxyBasicIfaceFuncs;
+};
 
 extern ZClass ZProxyBasicIface__class;
 
@@ -405,19 +413,20 @@ z_proxy_basic_iface_set_var(ZProxyBasicIface *self, const gchar *var_name, gchar
 }
 
 
-ZProxyBasicIface *z_proxy_basic_iface_new(ZClass *class, ZProxy *proxy);
+ZProxyBasicIface *z_proxy_basic_iface_new(ZClass *class_, ZProxy *proxy);
 #define z_proxy_basic_iface_free_method z_proxy_iface_free_method
 
 /* ZProxyStackIface */
 
 typedef ZProxyIface ZProxyStackIface;
-typedef struct _ZProxyStackIfaceFuncs
+struct ZProxyStackIfaceFuncs
 {
+public:
   ZObjectFuncs super;
   void (*set_verdict)(ZProxyStackIface *self, ZVerdict verdict, const gchar *description);
   gboolean (*get_content_hint)(ZProxyStackIface *self, gint64 *content_length, const gchar **content_format);
   void (*set_content_hint)(ZProxyStackIface *self, gint64 content_length);
-} ZProxyStackIfaceFuncs;
+};
 
 extern ZClass ZProxyStackIface__class;
 
@@ -449,11 +458,12 @@ z_proxy_stack_iface_get_content_hint(ZProxyStackIface *self, gint64 *content_len
 #define z_proxy_stack_iface_free_method z_proxy_iface_free_method
 
 typedef ZProxyIface ZProxyHostIface;
-typedef struct _ZProxyHostIfaceFuncs
+struct ZProxyHostIfaceFuncs
 {
+public:
   ZObjectFuncs super;
   gboolean (*check_name)(ZProxyHostIface *s, const gchar *host_name, gchar *reason_buf, gsize reason_len);
-} ZProxyHostIfaceFuncs;
+};
 
 extern ZClass ZProxyHostIface__class;
 

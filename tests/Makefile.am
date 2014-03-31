@@ -1,4 +1,3 @@
 
-SUBDIRS = python unit kzorp tools
+SUBDIRS = python unit kzorp tools zorpctl
 
-EXTRA_DIST = functional/README.txt @TESTCASES@

@@ -1,12 +1,12 @@
 LIBS=@MODULETESTS_LIBS@
-CPPFLAGS = @MODULES_CPPFLAGS@
+CPPFLAGS = @MODULES_CPPFLAGS@ -DBOOST_TEST_DYN_LINK=1
 
 check_PROGRAMS = http_parse_url http_canon_url
 
-http_parse_url_SOURCES = http_parse_url.c 
-http_parse_url_LDADD = ../httpmisc.lo
+LDADD = ../httpmisc.lo -lboost_unit_test_framework
 
-http_canon_url_SOURCES = http_canon_url.c 
-http_canon_url_LDADD = ../httpmisc.lo
+http_parse_url_SOURCES = http_parse_url.cc
+
+http_canon_url_SOURCES = http_canon_url.cc
 
 TESTS = http_parse_url http_canon_url

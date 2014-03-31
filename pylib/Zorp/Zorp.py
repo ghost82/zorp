@@ -1,12 +1,11 @@
 ############################################################################
 ##
-## Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-## 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or modify
-## it under the terms of the GNU General Public License as published by
-## the Free Software Foundation; either version 2 of the License, or
-## (at your option) any later version.
+## This program is free software; you can redistribute it and/or
+## modify it under the terms of the GNU General Public License
+## as published by the Free Software Foundation; either version 2
+## of the License, or (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,8 +14,7 @@
 ##
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-##
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 ##
 ############################################################################
 
@@ -119,6 +117,7 @@
         <item><name>Z_STACK_PROGRAM</name></item>
         <item><name>Z_STACK_REMOTE</name></item>
         <item><name>Z_STACK_PROVIDER</name></item>
+        <item><name>Z_STACK_PROXY_IN_SESSION</name></item>
       </enum>
       <enum maturity="stable" id="enum.zorp.logical">
         <description>logical operators</description>
@@ -189,18 +188,6 @@
         <item><name>CORE_MESSAGE</name><value>"core.message"</value></item>
         <item><name>CORE_AUTH</name><value>"core.auth"</value></item>
       </constantgroup>
-      <constantgroup maturity="stable" id="cont.zorp.log_message">
-        <description>Zorp exception types</description>
-        <item><name>ZoneException</name><value>"Zone not found"</value></item>
-        <item><name>ServiceException</name><value>"Service"</value></item>
-        <item><name>DACException</name><value>"DAC policy violation"</value></item>
-        <item><name>MACException</name><value>"MAC policy violation"</value></item>
-        <item><name>AAException</name><value>"Authentication or authorization failed"</value></item>
-        <item><name>LimitException</name><value>"Limit error"</value></item>
-        <item><name>InternalException</name><value>"Internal error occured"</value></item>
-        <item><name>UserException</name><value>"Incorrect, or unspecified parameter"</value></item>
-        <item><name>LicenseException</name><value>"Attempt to use unlicensed components"</value></item>
-      </constantgroup>
     </constants>
   </metainfo>
 </module>
@@ -216,15 +203,16 @@ import Config
 
 config = Config
 
-CORE_SESSION = "core.session"
-CORE_DEBUG = "core.debug"
-CORE_ERROR = "core.error"
-CORE_POLICY = "core.policy"
-CORE_MESSAGE = "core.message"
-CORE_AUTH = "core.auth"
-CORE_INFO = "core.info"
+import Common
 
-CORE_ALERTING = "core.alerting"
+CORE_SESSION = Common.CORE_SESSION
+CORE_DEBUG = Common.CORE_DEBUG
+CORE_ERROR = Common.CORE_ERROR
+CORE_POLICY = Common.CORE_POLICY
+CORE_MESSAGE = Common.CORE_MESSAGE
+CORE_AUTH = Common.CORE_AUTH
+CORE_INFO = Common.CORE_INFO
+CORE_ALERTING = Common.CORE_ALERTING
 
 # return values returned by event handlers
 ZV_UNSPEC         = 0
@@ -273,6 +261,7 @@ Z_STACK_PROGRAM = 2
 Z_STACK_REMOTE = 3
 Z_STACK_PROVIDER = 4
 Z_STACK_CUSTOM = 5
+Z_STACK_PROXY_IN_SESSION = 6
 
 # proxy priorities
 Z_PROXY_PRI_LOW = 0
@@ -372,7 +361,7 @@ def init(names, virtual_name, is_master):
     import __main__
     import SockAddr, KZorp, Matcher, Rule
     import kzorp.netlink
-    import kzorp.kzorp_netlink
+    import kzorp.communication
     import errno
 
     # miscelanneous initialization
@@ -416,7 +405,7 @@ def init(names, virtual_name, is_master):
     if config.options.kzorp_enabled:
         # ping kzorp to see if it's there
         try:
-            h = kzorp.kzorp_netlink.Handle()
+            h = kzorp.communication.Handle()
             Globals.kzorp_available = True
         except:
             Globals.kzorp_available = False
@@ -555,4 +544,4 @@ def log(sessionid, logclass, verbosity, msg, args=None):
       </metainfo>
     </function>
     """
-    pass
+    Common.log(sessionid, logclass, verbosity, msg, args=None)

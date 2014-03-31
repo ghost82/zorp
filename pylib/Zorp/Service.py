@@ -1,12 +1,11 @@
 ############################################################################
 ##
-## Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-## 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or modify
-## it under the terms of the GNU General Public License as published by
-## the Free Software Foundation; either version 2 of the License, or
-## (at your option) any later version.
+## This program is free software; you can redistribute it and/or
+## modify it under the terms of the GNU General Public License
+## as published by the Free Software Foundation; either version 2
+## of the License, or (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,8 +14,7 @@
 ##
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-##
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 ##
 ############################################################################
 
@@ -93,7 +91,7 @@ from Util import enum
 
 import types, thread, time, socket
 
-import kzorp.kzorp_netlink
+import kzorp.messages
 
 Z_SESSION_LIMIT_NOT_REACHED        = 0
 Z_SESSION_LIMIT_GRACEFULLY_REACHED = 1
@@ -416,7 +414,8 @@ Rule(src_zone='office',
     def __init__(self, name, proxy_class, router=None, chainer=None, snat_policy=None, snat=None,
                     dnat_policy=None, dnat=None, authentication_policy=None, authorization_policy=None,
                     max_instances=0, max_sessions=0, auth_name=None, resolver_policy=None, auth=None,
-                    auth_policy=None, keepalive=None, encryption_policy=None, limit_target_zones_to=None
+                    auth_policy=None, keepalive=None,
+                    encryption_policy=None, limit_target_zones_to=None, detector_config=None,
                     ):
         """
         <method maturity="stable">
@@ -659,6 +658,7 @@ Rule(src_zone='office',
             self.encryption_policy = None
 
         self.limit_target_zones_to = limit_target_zones_to
+        self.detector_config = detector_config
 
         self.max_instances = max_instances
         self.max_sessions = max_sessions
@@ -692,9 +692,8 @@ Rule(src_zone='office',
         if self.max_instances != 0 and self.num_instances >= self.max_instances:
             raise LimitException, "Instance limit reached"
 
-        instance_id = getInstanceId(self.name)
-        session.name = self.name
-        session.setServiceInstance(instance_id)
+        sys.exc_clear()
+        session.client_stream.keepalive = self.keepalive & Z_KEEPALIVE_CLIENT;
 
 
         self.lock.acquire()
@@ -703,49 +702,34 @@ Rule(src_zone='office',
 
         session.started = 1
 
-        # NOTE: the instance id calculation is now based in C to create
-        # unique session IDs even after policy reload
-        # instance_id = self.instance_id
-        # self.instance_id = self.instance_id + 1
-
-
-        timestamp = str(time.time())
-
-        szigEvent(Z_SZIG_SERVICE_COUNT,
-                    (Z_SZIG_TYPE_PROPS,
-                       (self.name, {
-                         'session_number': instance_id + 1,
-                         'sessions_running': self.num_instances,
-                         'last_started': timestamp,
-                         }
-                 )))
-
-        szigEvent(Z_SZIG_CONNECTION_PROPS,
-                   (Z_SZIG_TYPE_CONNECTION_PROPS,
-                      (self.name, instance_id, 0, 0, {
-                        'started': timestamp,
-                        'session_id': session.session_id,
-                        'proxy_module': self.proxy_class.name,
-                        'proxy_class': self.proxy_class.__name__,
-                        'client_address': str(session.client_address),
-                        'client_local': str(session.client_local),
-                        'client_zone': session.client_zone.getName(),
-                        }
-                 )))
-
-        szigEvent(Z_SZIG_CONNECTION_START,
-                    (Z_SZIG_TYPE_PROPS,
-                       (self.name, {}
-                 )))
 
         ## LOG ##
         # This message reports that a new proxy instance is started.
         ##
         log(session.session_id, CORE_SESSION, 3, "Starting proxy instance; client_fd='%d', client_address='%s', client_zone='%s', client_local='%s', client_protocol='%s'", (session.client_stream.fd, session.client_address, session.client_zone, session.client_local, session.protocol_name))
         ss = StackedSession(session, self.chainer)
-        session.client_stream.name = session.session_id + '/' + self.proxy_class.name + '/client'
 
+        # set up proxy stream
+        ss.client_stream = session.client_stream
+        ss.client_stream.name = session.session_id + '/' + self.proxy_class.name + '/client'
+
+        # route session
+        self.router.routeConnection(ss)
+
+        timestamp = str(time.time())
+
+        szigEvent(Z_SZIG_SERVICE_COUNT,
+                    (Z_SZIG_TYPE_PROPS,
+                       (self.name, {
+                         'session_number': session.instance_id + 1,
+                         'sessions_running': self.num_instances,
+                         'last_started': timestamp,
+                         }
+                 )))
+
+        # start up proxy
         proxy = self.proxy_class(ss)
+        ss.registerStart(timestamp)
         if not self.proxy_group.start(proxy):
             self.proxy_group = ProxyGroup(self.max_sessions)
             if not self.proxy_group.start(proxy):
@@ -788,8 +772,6 @@ Rule(src_zone='office',
                           }
                      )))
 
-            szigEvent(Z_SZIG_CONNECTION_STOP, (Z_SZIG_TYPE_CONNECTION_PROPS, (self.name, session.instance_id, 0, 0, {})))
-
         ## LOG ##
         # This message reports that a new proxy instance is stopped.
         ##
@@ -799,7 +781,7 @@ Rule(src_zone='office',
         """<method internal="yes">
         </method>
         """
-        return [kzorp.kzorp_netlink.KZorpAddProxyServiceMessage(self.name), ];
+        return [kzorp.messages.KZorpAddProxyServiceMessage(self.name), ];
 
 
 class PFService(AbstractService):
@@ -894,17 +876,17 @@ Rule(dst_port=5555,
         """
         def addNATMappings(messages, nat_type, nat_policy):
             if nat_type == NAT_SNAT:
-                msg_class = kzorp.kzorp_netlink.KZorpAddServiceSourceNATMappingMessage
+                msg_class = kzorp.messages.KZorpAddServiceSourceNATMappingMessage
             else:
-                msg_class = kzorp.kzorp_netlink.KZorpAddServiceDestinationNATMappingMessage
+                msg_class = kzorp.messages.KZorpAddServiceDestinationNATMappingMessage
             if nat_policy:
                 nat_mappings = nat_policy.getKZorpMapping()
                 for src_tuple, dst_tuple, map_tuple in nat_mappings:
                     messages.append(msg_class(self.name, src_tuple, map_tuple, dst_tuple))
 
-        flags = kzorp.kzorp_netlink.KZF_SVC_LOGGING
+        flags = kzorp.messages.KZF_SVC_LOGGING
         if isinstance(self.router, TransparentRouter):
-            flags = flags | kzorp.kzorp_netlink.KZF_SVC_TRANSPARENT
+            flags = flags | kzorp.messages.KZF_SVC_TRANSPARENT
             router_target_family = None
             router_target_ip = None
             router_target_port = None
@@ -918,10 +900,10 @@ Rule(dst_port=5555,
             raise ValueError, "Invalid router type specified for port forwarded service"
 
         if self.router.forge_addr:
-            flags = flags | kzorp.kzorp_netlink.KZF_SVC_FORGE_ADDR
+            flags = flags | kzorp.messages.KZF_SVC_FORGE_ADDR
 
         messages = []
-        messages.append(kzorp.kzorp_netlink.KZorpAddForwardServiceMessage(self.name, \
+        messages.append(kzorp.messages.KZorpAddForwardServiceMessage(self.name, \
                         flags, 0, router_target_family, router_target_ip, router_target_port))
         if self.snat_policy:
             addNATMappings(messages, NAT_SNAT, self.snat_policy)
@@ -1061,5 +1043,5 @@ class DenyService(AbstractService):
         """
         <method maturity="stable" internal="yes"></method>
         """
-        return [kzorp.kzorp_netlink.KZorpAddDenyServiceMessage(self.name, \
+        return [kzorp.messages.KZorpAddDenyServiceMessage(self.name, \
                 self.logging, 0, self.ipv4_setting, self.ipv6_setting), ]

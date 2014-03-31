@@ -1,12 +1,11 @@
 ############################################################################
 ##
-## Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-## 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or modify
-## it under the terms of the GNU General Public License as published by
-## the Free Software Foundation; either version 2 of the License, or
-## (at your option) any later version.
+## This program is free software; you can redistribute it and/or
+## modify it under the terms of the GNU General Public License
+## as published by the Free Software Foundation; either version 2
+## of the License, or (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,8 +14,7 @@
 ##
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-##
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 ##
 ## Author  : hidden
 ## Auditor :
@@ -199,7 +197,7 @@
           sequences by default. The different options can be enabled either manually in a derived proxy class, or the predefined TelnetProxy class can be used.
         </para>
       </section>
-      <section id="telnet_policies">
+      <section xml:id="telnet_policies">
         <title>Configuring policies for the TELNET protocol</title>
         <para>
           The Telnet proxy can enable/disable the use of the options and their suboptions within the session. Changing the default policy
@@ -244,7 +242,7 @@
             return TELNET_OPTION_ACCEPT</synopsis>
         </example>
       </section>
-      <section id="telnet_negotiation">
+      <section xml:id="telnet_negotiation">
       <title>
       Option negotiation
       </title>
@@ -262,12 +260,12 @@
             </para>
    </section>
   </description>
-  <appendix id="telnet_app_options">
+  <appendix xml:id="telnet_app_options">
   <title>TELNET appendix</title>
         <para>
         The constants defined for the easier use of TELNET options and suboptions are listed in the table below. Suboptions are listed directly under the option they refer to. All suboptions have the TELNET_SB prefix. The RFC describing the given option is also shown in the table.
         </para>
-        <table frame="all" id="telnet_options">
+        <table frame="all" xml:id="telnet_options">
 <title>TELNET options and suboptions</title>
 <tgroup cols="3">
 <thead><row><entry>Name</entry><entry>Constant value of option/suboption</entry><entry>Detailed in RFC #</entry></row></thead>
@@ -906,6 +904,7 @@ TELNET_SB_INFO  = "2"
 
 TELNET_POLICY   = "telnet.policy"
 
+
 class ParseInbandAuthError(Exception):
     """<class internal="yes"/>"""
     pass
@@ -1052,7 +1051,6 @@ class AbstractTelnetProxy(Proxy):
           """
     name = "telnet"
 
-
     def __init__(self, session):
         """<method maturity="stable" internal="yes">
                       <summary>
@@ -1071,11 +1069,10 @@ class AbstractTelnetProxy(Proxy):
                     </method>
                     """
         Proxy.__init__(self, session)
-        self.server_username = ""
-        self.gw_username = ""
+        self.username = ""
+        self.gateway_user = ""
         self.server_hostname = ""
         self.server_port = 23
-
 
     def config(self):
         """<method maturity="stable" internal="yes">
@@ -1086,6 +1083,16 @@ class AbstractTelnetProxy(Proxy):
         """
         pass
 
+    def __post_config__(self):
+        """<method maturity="stable" internal="yes">
+          <metainfo>
+            <arguments/>
+          </metainfo>
+        </method>
+        """
+        Proxy.__post_config__(self)
+
+
 
     def parseInbandAuth(self, env, content):
         """<method internal="yes">
@@ -1093,7 +1100,7 @@ class AbstractTelnetProxy(Proxy):
                 This method should be called when inband authentication is used, to parse the data in SERVER and USER environment variables.
             </summary>
             <description>
-                This method fills in self.server_username, self.gw_username, self.server_hostname, self.server_port
+                This method fills in self.username, self.gateway_user, self.server_hostname, self.server_port
                 from the SERVER and USER environment parameters passed to it. The self.server_port defaults to 23.
                 If both are specified the actual hostname comes from the more specific SERVER option.
                 SERVER option's notation form: server[:port]
@@ -1109,8 +1116,8 @@ class AbstractTelnetProxy(Proxy):
         state = {
           "server_hostname" : self.server_hostname,
           "server_port" : self.server_port,
-          "gw_username" : self.gw_username,
-          "server_username" : self.server_username,
+          "gateway_user" : self.gateway_user,
+          "username" : self.username,
         }
 
         def parseServer(self, content, state):
@@ -1147,16 +1154,28 @@ class AbstractTelnetProxy(Proxy):
                 raise ParseInbandAuthError, "USER environment variable must be in the form of user[@server[:port]], or gu=gwuser@[serveruser]@server[:port]"
 
             if at_count == 0:
-                state["server_username"] = content
+                state["username"] = content
             elif at_count == 1:
-                state["server_username"], host = content.split('@')
-                if not state["server_hostname"]:
-                    parseServer(self, host, state)
+                if content[:3] == "gu=":
+                     """ With a Directed router this form of the USER variable
+                         can also be used: gu=gwuser@serveruser """
+                     gwuser, state["username"] = content.split('@')
+                     state["gateway_user"] = gwuser[3:]
+                else:
+                    state["username"], host = content.split('@')
+                    if not state["server_hostname"]:
+                        parseServer(self, host, state)
             elif at_count == 2:
-                gwuser, state["server_username"], host = content.split('@')
-                state["gw_username"] = gwuser[3:]
+                gwuser, username, host = content.split('@')
+                state["gateway_user"] = gwuser[3:]
+                if username:
+                    state["username"] = username
                 if not state["server_hostname"]:
                     parseServer(self, host, state)
+
+        def applyState(o, state):
+            for (attr, value) in state.items():
+                setattr(o, attr, value)
 
         env = env.upper()
         try:
@@ -1178,10 +1197,10 @@ class AbstractTelnetProxy(Proxy):
                                              "env='%s', content='%s'", (env, content))
             return FALSE
 
-        self.server_hostname = state["server_hostname"]
-        self.server_port = state["server_port"]
-        self.gw_username = state["gw_username"]
-        self.server_username = state["server_username"]
+        applyState(self, state)
+
+        if (self.enable_pattern_matching):
+            self.serverUsernameSet()
 
         return TRUE
 
@@ -1266,29 +1285,6 @@ class TelnetProxyStrict(AbstractTelnetProxy):
 
         self.negotiation["239"]                 = int(TELNET_EOR)
 
-class TelnetProxyNonTransparent(TelnetProxy):
-    """<class maturity="stable" internal="yes">
-      <summary>
-      </summary>
-      <description/>
-      <metainfo>
-        <attributes/>
-      </metainfo>
-    </class>
-    """
-    auth_inband_supported = TRUE
-
-    def config(self):
-        """<method maturity="stable" internal="yes">
-          <summary>
-          </summary>
-          <description>
-          </description>
-          <metainfo>
-            <arguments/>
-          </metainfo>
-        </method>
-        """
 class TelnetProxyNonTransparent(TelnetProxy):
     """<class maturity="stable" internal="yes">
       <summary>

@@ -9,20 +9,21 @@ socket.IP_TRANSPARENT = 19
 socket.SO_KZORP_RESULT = 1678333
 
 import test_kzorp
-import kzorp.kzorp_netlink as kznl
+import kzorp.messages
+import kzorp.communication
 
 
 class KZorpSockoptTest(test_kzorp.KZorpComm):
     def __init__(self, *args):
         super(KZorpSockoptTest, self).__init__(*args)
-        self.handle = kznl.Handle()
+        self.handle = kzorp.communication.Handle()
 
     __setup_messages = \
         (
-          KZorpAddProxyServiceMessage("service"),
-          KZorpAddZoneMessage("internet"),
-          KZorpAddDispatcherMessage("dispatcher", 1),
-          KZorpAddRuleMessage("dispatcher", 1, "service", {}),
+          kzorp.messages.KZorpAddProxyServiceMessage("service"),
+          kzorp.messages.KZorpAddZoneMessage("internet"),
+          kzorp.messages.KZorpAddDispatcherMessage("dispatcher", 1),
+          kzorp.messages.KZorpAddRuleMessage("dispatcher", 1, "service", {}),
         )
 
     def setUp(self):

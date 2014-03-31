@@ -1,11 +1,10 @@
 /***************************************************************************
  *
- * Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
- * 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 as published
- * by the Free Software Foundation.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation.
  *
  * Note that this permission is granted for only version 2 of the GPL.
  *
@@ -20,7 +19,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  *
  ***************************************************************************/
 
@@ -35,8 +34,16 @@ typedef struct _ZPolicyProxy ZPolicyProxy;
 
 extern PyTypeObject z_policy_proxy_type;
 
-gboolean z_policy_proxy_bind_implementation(PyObject *self);
+typedef enum
+{
+  Z_POLICY_PROXY_BIND_IMPL_FAILED,
+  Z_POLICY_PROXY_BIND_IMPL_LICENSE_ERROR,
+  Z_POLICY_PROXY_BIND_IMPL_OK
+} ZPolicyProxyBindImplementationResult;
+
+ZPolicyProxyBindImplementationResult z_policy_proxy_bind_implementation(PyObject *self);
 ZProxy *z_policy_proxy_get_proxy(PyObject *obj);
+void z_policy_proxy_set_proxy(PyObject *s, ZProxy *proxy);
 
 void z_policy_proxy_module_init(void);
 void z_policy_proxy_module_py_init(ZProxyModulePyInitFunc init_func, const gchar *module_name);

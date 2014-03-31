@@ -9,11 +9,11 @@ enum
   Z_EF_ESCAPE_HTML = 0x0002,
 };
 
-typedef gchar *(*ZErrorLoaderResolveFunc)(gchar *variable, gpointer user_data);
+typedef gchar *(*ZErrorLoaderResolveFunc)(const gchar *variable, gpointer user_data);
 
 typedef struct _ZErrorLoaderVarInfo
 {
-  gchar *variable;
+  const gchar *variable;
   ZErrorLoaderResolveFunc resolve;
 } ZErrorLoaderVarInfo;
 

@@ -9,5 +9,5 @@ Name: ZorpLib
 Description: Zorp Core Library
 Requires: zorplibll
 Version: @VERSION@
-Libs: -lzorp -L@libdir@
-Cflags: -I@includedir@
+Libs: -lzorp -L@libdir@ @PYTHON_LIBS@
+Cflags: -I@includedir@ @PYTHON_CFLAGS@

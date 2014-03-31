@@ -1,6 +1,11 @@
-SUBDIRS = . messages tests
+SUBDIRS =
+DIST_SUBDIRS =
 
-pkgdatadir = @datadir@/zorp/pylib/Zorp
+
+SUBDIRS += . messages tests
+DIST_SUBDIRS += . messages tests
+
+pkgdatadir = @ZORP_PYTHON_DIR@
 pkglibdir = @libdir@/zorp
 LIBS = @MODULES_LIBS@
 CPPFLAGS = @MODULES_CPPFLAGS@
@@ -10,9 +15,7 @@ pkgdata_DATA = Http.py
 
 pkglib_LTLIBRARIES = libhttp.la
 
-libhttp_la_SOURCES = http.c httpproto.c httpfltr.c httpfltr.h httpmisc.c httphdr.c httpftp.c http.h \
-                     httpcommon.h http-audit-common.h http-audit-data-exchange.h \
-                     http-audit-data-exchange.c http-audit-stream.h http-audit-stream.c http-audit-repository.h \
-                     http-audit-repository.c
+libhttp_la_SOURCES = http.cc httpproto.cc httpfltr.cc httpfltr.h httpmisc.cc \
+                     httphdr.cc httpftp.cc http.h httpcommon.h
 
 EXTRA_DIST =  $(pkgdata_DATA)

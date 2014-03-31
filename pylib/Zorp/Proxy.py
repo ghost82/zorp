@@ -1,12 +1,11 @@
 ############################################################################
 ##
-## Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-## 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or modify
-## it under the terms of the GNU General Public License as published by
-## the Free Software Foundation; either version 2 of the License, or
-## (at your option) any later version.
+## This program is free software; you can redistribute it and/or
+## modify it under the terms of the GNU General Public License
+## as published by the Free Software Foundation; either version 2
+## of the License, or (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,8 +14,7 @@
 ##
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-##
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 ##
 ############################################################################
 
@@ -252,6 +250,7 @@
 """
 
 from Zorp import *
+from Base import *
 from Stream import Stream
 from SockAddr import SockAddrInet
 from Session import StackedSession, MasterSession
@@ -259,6 +258,7 @@ from Stack import getStackingProviderBackend
 from Keybridge import *
 from Chainer import ConnectChainer
 from Exceptions import *
+from Detector import *
 
 import string, os, sys, traceback, re, types
 
@@ -1524,12 +1524,9 @@ class Proxy(BuiltinProxy):
         """
         # NOTE: circular reference, it is resolved in the __destroy__ method
         self.session = session
-        self.session.proxy = self
-        setattr(self.session, self.name, self)
-
+        session.setProxy(self)
         self.server_fd_picked = FALSE
         self.proxy_started = FALSE
-        session.setProxy(self.name)
 
         ## LOG ##
         # This message reports that a new proxy instance was started.
@@ -1761,7 +1758,38 @@ class Proxy(BuiltinProxy):
         self.__dict__.clear()
         self.session = session
 
-    def stackProxy(self, client_stream, server_stream, proxy_class, stack_info, side_stacking=False):
+    def _stackProxyInSession(self, proxy_class, session):
+        """
+        <method internal="yes"/>
+        """
+        try:
+            proxy = proxy_class(session)
+            if ProxyGroup(1).start(proxy):
+                return proxy
+            else:
+                raise RuntimeError, "Error starting proxy in group"
+
+        except:
+            ## LOG ##
+            # This message indicates that an error occurred during child proxy stacking.
+            # The stacking failed and the subsession is destroyed.
+            ##
+            proxyLog(self, CORE_ERROR, 2, "Error while stacking child proxy; error='%s', error_desc='%s', " % (sys.exc_info()[0], sys.exc_info()[1]))
+            raise
+
+    def stackProxyInSession(self, proxy_class, subsession, stack_info):
+        """
+        <method internal="yes"/>
+        """
+        subsession.stack_info = stack_info
+
+        try:
+            return self._stackProxyInSession(proxy_class, subsession)
+        except:
+            subsession.destroy()
+            raise
+
+    def stackProxy(self, client_stream, server_stream, proxy_class, stack_info):
         """
         <method internal="yes">
           <summary>
@@ -1793,10 +1821,10 @@ class Proxy(BuiltinProxy):
                 <description>The protocol-specific proxy class to embed into the current proxy instance.
                 </description>
               </argument>
-              <argument>
-                <name>side_stacking</name>
+              <argument maturity="stable">
+                <name>stack_info</name>
                 <type></type>
-                <description>TRUE if a side-stack is requested, FALSE for normal stack.
+                <description>Meta-information provided by the parent proxy.
                 </description>
               </argument>
             </arguments>
@@ -1804,48 +1832,25 @@ class Proxy(BuiltinProxy):
         </method>
         """
 
-        if side_stacking:
-            ## LOG ##
-            # This message reports that Zorp is about to stack a new proxy under the current proxy, as a child proxy.
-            ##
-            proxyLog(self, CORE_DEBUG, 7, "Stacking child proxy on right side; client_fd='%d', class='%s'", (client_stream.fd, proxy_class.__name__))
-            subsession = StackedSession(self.session, ConnectChainer())
-        else:
-            ## LOG ##
-            # This message reports that Zorp is about to stack a new proxy under the current proxy, as a child proxy.
-            ##
-            proxyLog(self, CORE_DEBUG, 7, "Stacking child proxy; client_fd='%d', server_fd='%d', class='%s'", (client_stream.fd, server_stream.fd, proxy_class.__name__))
-            subsession = StackedSession(self.session)
+        proxyLog(self, CORE_DEBUG, 7, "Stacking child proxy; client_fd='%d', server_fd='%d', class='%s'", (client_stream.fd, server_stream.fd, proxy_class.__name__))
+
+        # generate session ID for streams by replacing proxy name in the current value
+        session_id_parts = string.split(self.session.session_id, '/')
+        session_id_parts[-1] = proxy_class.name
+        session_id = string.join(session_id_parts, '/')
+
+        subsession = StackedSession(self.session)
         subsession.stack_info = stack_info
-        session_id = string.split(self.session.session_id, '/')
-        if len(session_id):
-            session_id[len(session_id)-1] = proxy_class.name
-            session_id = string.join(session_id, '/')
-        else:
-            # hmm, funny session_id ...
-            session_id = self.session.session_id
         subsession.client_stream = client_stream
         subsession.client_stream.name = "%s/client_upstream" % (session_id)
-        if not side_stacking:
-            subsession.server_stream = server_stream
-            subsession.server_stream.name = "%s/server_upstream" % (session_id)
-        try:
-            proxy = proxy_class(subsession)
-            if ProxyGroup(1).start(proxy):
-                return proxy
-            else:
-                raise RuntimeError, "Error starting proxy in group"
+        subsession.server_stream = server_stream
+        subsession.server_stream.name = "%s/server_upstream" % (session_id)
 
+        try:
+            return self._stackProxyInSession(proxy_class, subsession)
         except:
-            ## LOG ##
-            # This message indicates that an error occurred during child proxy stacking.
-            # The stacking failed and the subsession is destroyed.
-            ##
-            proxyLog(self, CORE_ERROR, 2, "Error while stacking child proxy; error='%s', error_desc='%s', " % (sys.exc_info()[0], sys.exc_info()[1]))
             subsession.destroy()
             raise
-
-        return None
 
     def stackCustom(self, args):
         """
@@ -1891,7 +1896,6 @@ class Proxy(BuiltinProxy):
             stack_info = args[1]
         return stack_backend.stack(stack_info)
 
-
     def setServerAddress(self, host, port):
         """
         <method maturity="stable">
@@ -1932,22 +1936,47 @@ class Proxy(BuiltinProxy):
           </metainfo>
         </method>
         """
-        # resolve host, port and store it in session.server_address
-        # may raise an exception
-        if self.session.target_address_inband:
-            target = self.session.service.resolver_policy.resolve(host, port)
-            if not target:
-                ## LOG ##
-                # This message indicates that the given hostname
-                # could not be resolved.  It could happen if the
-                # hostname is invalid or nonexistent, or it if your
-                # resolve setting are not well configured.  Check
-                # your "/etc/resolv.conf"
-                ##
-                proxyLog(self, CORE_ERROR, 3, "Error resolving hostname; host='%s'", (host,))
-                return FALSE
-            self.session.setTargetAddress(target)
-        return TRUE
+        return self.session.setTargetAddressByHostname(host, port)
+
+    def _connectServerInternal(self):
+        """<method internal="yes"/>"""
+        server_stream = None
+
+        try:
+                server_stream = self.session.chainer.chainParent(self.session)
+
+        except ZoneException, s:
+            ## LOG ##
+            # This message indicates that no appropriate zone was found for the server address.
+            # @see: Zone
+            ##
+            proxyLog(self, CORE_POLICY, 1, "Zone not found; info='%s'", (s,))
+        except DACException, s:
+            ## LOG ##
+            # This message indicates that an DAC policy violation occurred.
+            # It is likely that the new connection was not permitted as an inbound_service in the given zone.
+            # @see: Zone
+            ##
+            proxyLog(self, CORE_POLICY, 1, "DAC policy violation; info='%s'", (s,))
+            self.notifyEvent("core.dac_exception", [])
+        except MACException, s:
+            ## LOG ##
+            # This message indicates that a MAC policy violation occurred.
+            ##
+            proxyLog(self, CORE_POLICY, 1, "MAC policy violation; info='%s'", (s,))
+        except AAException, s:
+            ## NOLOG ##
+            proxyLog(self.self, CORE_POLICY, 1, "Authentication failure; info='%s'", (s,))
+        except LimitException, s:
+            ## NOLOG ##
+            proxyLog(self, CORE_POLICY, 1, "Connection over permitted limits; info='%s'", (s,))
+        except LicenseException, s:
+            ## NOLOG ##
+            proxyLog(self, CORE_POLICY, 1, "Attempt to use an unlicensed component, or number of licensed hosts exceeded; info='%s'", (s,))
+        except:
+            traceback.print_exc()
+
+        return server_stream
 
     def connectServer(self):
         """
@@ -1979,64 +2008,32 @@ class Proxy(BuiltinProxy):
           </metainfo>
         </method>
         """
-        try:
-            if self.session.chainer == None:
+        if self.session.chainer == None:
 
-                # we have no chainer, the server side fd
-                # should be available by now, used in stacked
-                # proxies
+            # we have no chainer, the server side fd
+            # should be available by now, used in stacked
+            # proxies
+            if self.session.server_stream == None:
+                raise InternalException, "No chainer and server_stream is None"
 
-                if self.session.server_stream == None:
-                    raise InternalException, "No chainer and server_stream is None"
-                if self.server_fd_picked:
-                    ## LOG ##
-                    # This message indicates an internal
-                    # error condition, more precisely a
-                    # non-toplevel proxy tried to
-                    # connect to the server side
-                    # multiple times, which is not
-                    # supported. Please report this
-                    # event to the Zorp QA team (at
-                    # devel@balabit.com).
-                    ##
-                    log(self.session.session_id, CORE_ERROR, 1, "Internal error, stacked proxy reconnected to server multiple times;")
-                    return None
-                self.server_fd_picked = TRUE
-            else:
-                self.server_fd_picked = TRUE
-                self.session.server_stream = None
-                self.session.server_local = self.session.owner.server_local
-                self.session.chainer.chainParent(self.session)
-        except ZoneException, s:
-            ## LOG ##
-            # This message indicates that no appropriate zone was found for the server address.
-            # @see: Zone
-            ##
-            log(self.session.session_id, CORE_POLICY, 1, "Zone not found; info='%s'", (s,))
-        except DACException, s:
-            ## LOG ##
-            # This message indicates that an DAC policy violation occurred.
-            # It is likely that the new connection was not permitted as an inbound_service in the given zone.
-            # @see: Zone
-            ##
-            log(self.session.session_id, CORE_POLICY, 1, "DAC policy violation; info='%s'", (s,))
-            self.notifyEvent("core.dac_exception", [])
-        except MACException, s:
-            ## LOG ##
-            # This message indicates that a MAC policy violation occurred.
-            ##
-            log(self.session.session_id, CORE_POLICY, 1, "MAC policy violation; info='%s'", (s,))
-        except AAException, s:
-            ## NOLOG ##
-            log(self.session.session_id, CORE_POLICY, 1, "Authentication failure; info='%s'", (s,))
-        except LimitException, s:
-            ## NOLOG ##
-            log(self.session.session_id, CORE_POLICY, 1, "Connection over permitted limits; info='%s'", (s,))
-        except LicenseException, s:
-            ## NOLOG ##
-            log(self.session.session_id, CORE_POLICY, 1, "Attempt to use an unlicensed component, or number of licensed hosts exceeded; info='%s'", (s,))
-        except:
-            traceback.print_exc()
+            if self.server_fd_picked:
+                ## LOG ##
+                # This message indicates an internal
+                # error condition, more precisely a
+                # non-toplevel proxy tried to
+                # connect to the server side
+                # multiple times, which is not
+                # supported. Please report this
+                # event to the Zorp QA team (at
+                # devel@balabit.com).
+                ##
+                log(self.session.session_id, CORE_ERROR, 1, "Internal error, stacked proxy reconnected to server multiple times;")
+                return None
+            self.server_fd_picked = TRUE
+
+        else:
+            self.server_fd_picked = TRUE
+            self.session.server_stream = self._connectServerInternal()
 
         return self.session.server_stream
 
@@ -2084,9 +2081,7 @@ class Proxy(BuiltinProxy):
             update_szig["remote_user"] = entity
             update_szig["remote_groups"] = str(groups)
 
-        szigEvent(Z_SZIG_CONNECTION_PROPS,
-                  (Z_SZIG_TYPE_CONNECTION_PROPS,
-                   (self.session.service.name, self.session.instance_id, 0, 0, update_szig)))
+        self.session.updateSzigConns(Z_SZIG_CONNECTION_PROPS, update_szig);
 
 
     def readPEM(self, filename):

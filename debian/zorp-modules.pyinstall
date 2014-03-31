@@ -1,0 +1,10 @@
+modules/anypy/AnyPy.py Zorp
+modules/apr/APR.py Zorp
+modules/finger/Finger.py Zorp
+modules/ftp/Ftp.py Zorp
+modules/http/Http.py Zorp
+modules/plug/Plug.py Zorp
+modules/pop3/Pop3.py Zorp
+modules/smtp/Smtp.py Zorp
+modules/telnet/Telnet.py Zorp
+modules/whois/Whois.py Zorp

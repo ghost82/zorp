@@ -6,8 +6,8 @@
 #include <zorp/sockaddr.h>
 #include <zorp/connection.h>
 
-typedef struct _ZDispatchEntry ZDispatchEntry;
-typedef struct _ZDispatchBind ZDispatchBind;
+class ZDispatchEntry;
+class ZDispatchBind;
 
 /* dispatching priorities */
 
@@ -18,13 +18,13 @@ enum
   ZD_PRI_RELATED=-100,  /* used by proxies needing related connections, e.g. FTP data stream */
 };
 
-enum
+enum ZDispatchBindType
 {
   ZD_BIND_NONE,
   ZD_BIND_SOCKADDR,
   ZD_BIND_IFACE,
   ZD_BIND_IFACE_GROUP,
-} ZDispatchBindType;
+};
 
 typedef struct _ZDispatchCommonParams
 {
@@ -60,8 +60,9 @@ typedef gboolean (*ZDispatchCallbackFunc)(ZConnection *conn, gpointer user_data)
 
 /* The dispatch_table hashtable contains ZDispatchEntry structures keyed
  * with instances of this type */
-struct _ZDispatchBind
+class ZDispatchBind
 {
+public:
   ZRefCount ref_cnt;
   gushort protocol;
   gushort type;

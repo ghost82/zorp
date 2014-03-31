@@ -95,7 +95,7 @@ struct _ZTransfer2
    * But after stacking an iface callback might be called and
    * it would be causing some problem.
    */
-  GMutex *startup_lock;
+  GMutex startup_lock;
 };
 
 typedef struct _ZTransfer2Funcs
@@ -121,7 +121,7 @@ void z_transfer2_enable_progress(ZTransfer2 *elf, glong progress_interval);
 gboolean z_transfer2_simple_run(ZTransfer2 *self);
 
 ZTransfer2 *
-z_transfer2_new(ZClass *class,
+z_transfer2_new(ZClass *class_,
                 ZProxy *owner, ZPoll *poll,
                 ZStream *source, ZStream *dest,
                 gsize buffer_size,

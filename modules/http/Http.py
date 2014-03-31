@@ -1,12 +1,11 @@
 ############################################################################
 ##
-## Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-## 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or modify
-## it under the terms of the GNU General Public License as published by
-## the Free Software Foundation; either version 2 of the License, or
-## (at your option) any later version.
+## This program is free software; you can redistribute it and/or
+## modify it under the terms of the GNU General Public License
+## as published by the Free Software Foundation; either version 2
+## of the License, or (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,8 +14,7 @@
 ##
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-##
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 ##
 ## Author  : Bazsi
 ## Auditor :
@@ -193,7 +191,7 @@ HTTP/1.0 200 Connection established
 Proxy-agent: My-Proxy/1.1</synopsis>
         </example>
       </section>
-      <section id="http_policies">
+      <section xml:id="http_policies">
         <title>Configuring policies for HTTP requests and responses</title>
         <para>
           Changing the default behavior of requests is possible using the
@@ -237,7 +235,7 @@ Proxy-agent: My-Proxy/1.1</synopsis>
 
       </section>
 
-      <section id="http_header_policies">
+      <section xml:id="http_header_policies">
         <title>Configuring policies for HTTP headers</title>
         <para>
           Both request and response headers can be modified by the proxy during
@@ -438,7 +436,7 @@ def instance():
           </para>
         </note>
       </section>
-      <section id="http_stacking">
+      <section xml:id="http_stacking">
         <title>Stacking</title>
         <para>
           HTTP supports stacking proxies for both request and response
@@ -477,7 +475,7 @@ def instance():
         by the RFCs, but Zorp permits such responses for interoperability reasons.
         </para>
         </section>
-        <section id="zorp_http_urlfiltering">
+        <section xml:id="zorp_http_urlfiltering">
             <title>URL filtering in HTTP</title>
             <para>Starting with version 3.3FR1, Zorp supports category-based URL filtering using a regularly updated database.</para>
             <itemizedlist>
@@ -491,7 +489,7 @@ def instance():
                     <para>To customize or expand the URL-database, see <xref linkend="zorp_http_urlfiltering_manual"/>.</para>
                 </listitem>
             </itemizedlist>
-            <section id="zorp_http_urlfiltering_configuring">
+            <section xml:id="zorp_http_urlfiltering_configuring">
                 <title>Configuring URL-filtering in HTTP</title>
                     <para>The URLs and domains in the database are organized into thematic categories like <parameter>adult</parameter>, <parameter>news</parameter>, <parameter>jobsearch</parameter>, etc.</para>
                     <para>To enable url-filtering, set the <parameter>enable_url_filter</parameter> and <parameter>enable_url_filter_dns</parameter> options to <parameter>TRUE</parameter>. The <parameter>enable_url_filter_dns</parameter> option is needed only to ensure that a domain or URL is correctly categorized even when it is listed in the database using its domain name, but the client tries to access it with its IP address (or vice-versa).</para>
@@ -525,7 +523,7 @@ def instance():
         self.url_category['*']=(HTTP_URL_ACCEPT,)</synopsis>
             </example>
             </section>
-            <section id="zorp_http_urlfiltering_categories">
+            <section xml:id="zorp_http_urlfiltering_categories">
                 <title>List of URL-filtering categories</title>
                 <para>The Zorp URL database contains the following thematic categories by default.</para>
                 <itemizedlist>
@@ -753,7 +751,7 @@ def instance():
         </listitem>
 </itemizedlist>
             </section>
-            <section id="zorp_http_urlfiltering_manual">
+            <section xml:id="zorp_http_urlfiltering_manual">
                  <title>Customizing the URL database</title>
                  <para>To customize the database, you have to manually edit the relevant files of the database. The URL database is located on the Zorp hosts under the <filename>/etc/zorp/urlfilter/</filename> directory. Every thematic category is subdirectory containing two files called <filename>domains</filename> and <filename>urls</filename>. These files contain the list of domains (e.g., <parameter>example.com</parameter>) and URLs (e.g., <parameter>example.com/news/</parameter>) that fall into the specific category. Optionally, the subdirectory may contain a third file called <filename>expressions</filename>, where more complex rules can be defined using regular expressions.</para>
                  <itemizedlist>
@@ -1092,7 +1090,6 @@ def instance():
 from Zorp import *
 from Plug import PlugProxy
 from Proxy import Proxy, proxyLog
-from Session import StackedSession
 from Matcher import getMatcher
 
 HTTP_URL_ACCEPT         = 1
@@ -1104,6 +1101,7 @@ HTTP_REQ_DENY           = 2
 HTTP_REQ_REJECT         = 3
 HTTP_REQ_ABORT          = 4
 HTTP_REQ_POLICY         = 6
+HTTP_REQ_CUSTOM_RESPONSE = 7
 
 HTTP_RSP_ACCEPT         = 1
 HTTP_RSP_DENY           = 2

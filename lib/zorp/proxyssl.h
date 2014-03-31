@@ -80,6 +80,19 @@ typedef struct _ZProxySsl {
   gboolean server_check_subject;
   GString  *local_privkey_passphrase[EP_MAX];
 
+  GString *tlsext_server_host_name;
+
+  /* List of handshake objects. Unfortunately OpenSSL callbacks cannot be
+   * handed a destroy_notify callback so we generally cannot use
+   * refcounting to manage the lifetime of handshake objects.
+   *
+   * Instead, we do store all handshake objects in this linked list in the
+   * associated proxy and make sure we delete these when we can guarantee that
+   * the handshake is no longer needed (referenced).
+   *
+   * Right now this means we delete handshake objects only from the proxy
+   * destroy method.
+   */
   GList *handshakes;
 } ZProxySsl;
 
@@ -89,7 +102,7 @@ typedef struct _ZProxySSLHandshake {
   ZSSLSession *session;
   ZStream *stream;
   ZProxy *proxy;
-  gint side;
+  ZEndpoint side;
 
   /* result */
   gint ssl_err;
@@ -106,16 +119,16 @@ typedef struct _ZProxySSLHandshake {
   SSL_CTX *ssl_context;
 } ZProxySSLHandshake;
 
-ZProxySSLHandshake *z_proxy_ssl_handshake_new(ZProxy *proxy, ZStream *stream, gint side);
+ZProxySSLHandshake *z_proxy_ssl_handshake_new(ZProxy *proxy, ZStream *stream, ZEndpoint side);
 
 void z_proxy_ssl_config_defaults(ZProxy *self);
 void z_proxy_ssl_register_vars(ZProxy *self);
 void z_proxy_ssl_free_vars(ZProxy *self);
 gboolean z_proxy_ssl_perform_handshake(ZProxySSLHandshake *handshake);
-gboolean z_proxy_ssl_init_stream(ZProxy *self, gint side);
-gboolean z_proxy_ssl_init_stream_nonblocking(ZProxy *self, gint side);
-gboolean z_proxy_ssl_request_handshake(ZProxy *self, gint side, gboolean forced);
-void z_proxy_ssl_clear_session(ZProxy *self, gint side);
+gboolean z_proxy_ssl_init_stream(ZProxy *self, ZEndpoint side);
+gboolean z_proxy_ssl_init_stream_nonblocking(ZProxy *self, ZEndpoint side);
+gboolean z_proxy_ssl_request_handshake(ZProxy *self, ZEndpoint side, gboolean forced);
+void z_proxy_ssl_clear_session(ZProxy *self, ZEndpoint side);
 void z_proxy_ssl_set_force_connect_at_handshake(ZProxy *self, gboolean val);
 
 #endif

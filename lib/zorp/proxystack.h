@@ -1,11 +1,10 @@
 /***************************************************************************
  *
- * Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
- * 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+ * Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 as published
- * by the Free Software Foundation.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation.
  *
  * Note that this permission is granted for only version 2 of the GPL.
  *
@@ -20,7 +19,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  *
  ***************************************************************************/
 
@@ -41,7 +40,7 @@ enum
 struct _ZStackedProxy
 {
   ZRefCount ref_cnt;
-  GStaticMutex destroy_lock;
+  GMutex destroy_lock;
   gboolean destroyed;
   guint32 flags;
   ZStream *downstreams[EP_MAX];
@@ -58,6 +57,7 @@ enum
   Z_STACK_REMOTE = 3,
   Z_STACK_PROVIDER = 4,
   Z_STACK_CUSTOM = 5,
+  Z_STACK_PROXY_IN_SESSION = 6,
 };
 
 gboolean z_proxy_stack_remote_handshake(ZSockAddr *sa, const gchar *stack_info, ZStream **client, ZStream **server, ZStream **control, guint32 *stack_flags);

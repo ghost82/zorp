@@ -1,12 +1,11 @@
 ############################################################################
 ##
-## Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-## 2010, 2011 BalaBit IT Ltd, Budapest, Hungary
+## Copyright (c) 2000-2014 BalaBit IT Ltd, Budapest, Hungary
 ##
-## This program is free software; you can redistribute it and/or modify
-## it under the terms of the GNU General Public License as published by
-## the Free Software Foundation; either version 2 of the License, or
-## (at your option) any later version.
+## This program is free software; you can redistribute it and/or
+## modify it under the terms of the GNU General Public License
+## as published by the Free Software Foundation; either version 2
+## of the License, or (at your option) any later version.
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -15,8 +14,7 @@
 ##
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-##
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 ##
 ############################################################################
 """
@@ -24,10 +22,10 @@
     <summary>Module defining firewall rules</summary>
     <description>
         <para>The Rule module defines the classes needed to create Zorp firewall rules.</para>
-        <xi:include href="../zorp-admin-guide/chapters/zorp-firewall-rules.xml" xmlns:xi="http://www.w3.org/2001/XInclude" xpointer="element(zorp-firewall-rules-evaluation)"/>
-        <section id="sample-rules">
+        <xi:include href="../../zorp-admin-guide/chapters/zorp-firewall-rules.xml" xmlns:xi="http://www.w3.org/2001/XInclude" xpointer="element(zorp-firewall-rules-evaluation)"><xi:fallback><xi:include href="../zorp-admin-guide/chapters/zorp-firewall-rules.xml" xmlns:xi="http://www.w3.org/2001/XInclude" xpointer="element(zorp-firewall-rules-evaluation)"/></xi:fallback></xi:include>
+        <section xml:id="sample-rules">
             <title>Sample rules</title>
-            <example id="example-rules">
+            <example xml:id="example-rules">
                 <title>Sample rule definitions</title>
                 <para>The following rule starts the service called <parameter>MyPFService</parameter> for every incoming TCP connection (<parameter>proto=6</parameter>).</para>
                 <synopsis>Rule(proto=6,
@@ -55,7 +53,7 @@
     )</synopsis>
             </example>
         </section>
-        <section id="rules-metadata">
+        <section xml:id="rules-metadata">
             <title>Adding metadata to rules: tags and description</title>
             <para>To make the configuration file more readable and informative, you can add descriptions and tags to the rules. Descriptions can be longer texts, while tags are simple labels, for example, to identify rules that belong to the same type of traffic. Adding metadata to rules is not necessary, but can be a great help when maintaining large configurations.</para>
             <itemizedlist>
@@ -87,7 +85,7 @@ from Util import makeSequence
 from Util import parseIfaceGroupAliases
 from Subnet import Subnet
 from Zone import Zone
-import kzorp.kzorp_netlink as kzorp
+import kzorp.messages as kzorp
 import Globals
 import Dispatch
 
@@ -358,7 +356,7 @@ class Rule(object):
             name_list = makeSequence(name_list)
 
             for name in name_list:
-                if Zone.lookup_by_name(name) == None:
+                if Zone.lookupByName(name) == None:
                     raise ValueError, "No zone was defined with that name; zone='%s'" % (name,)
 
         def parsePorts(port_list):
@@ -408,44 +406,70 @@ class Rule(object):
 
             return groups
 
+        def CreateRealRule(parameters):
+            """
+            <method internal="yes">
+            Helper function to create rules
+            </method>
+            """
+
+            # store service
+            service_name = parameters.pop('service', None)
+            self._service = Globals.services.get(service_name, None)
+            if not self._service:
+                raise ValueError, "No valid service was specified for the rule; service='%s'" % (service_name,)
+
+            # convert and check special dimensions: subnets, ports and zones at the moment
+
+            for ip_keyword in ['src_subnet', 'dst_subnet']:
+                ipv6_keyword = ip_keyword + '6'
+                # forbid usage of ipv6 related keywords:
+                if ipv6_keyword in parameters:
+                    raise ValueError, "Invalid dimension specification '%s'" % ipv6_keyword
+                (parameters[ip_keyword], parameters[ipv6_keyword]) = parseSubnets(parameters.get(ip_keyword, []))
+
+            parameters['src_ifgroup'] = parseGroups(parameters.get('src_ifgroup', []))
+            parameters['dst_ifgroup'] = parseGroups(parameters.get('dst_ifgroup', []))
+            parameters['src_port'] = parsePorts(parameters.get('src_port', []))
+            parameters['dst_port'] = parsePorts(parameters.get('dst_port', []))
+            resolveZones(parameters.get('src_zone', []))
+            resolveZones(parameters.get('dst_zone', []))
+
+            # store values specified
+            self._dimensions = {}
+            for key, value in parameters.items():
+                if key not in self.valid_dimensions:
+                    if key in self.dimension_aliases:
+                        key = self.dimension_aliases[key]
+                    else:
+                        raise ValueError, "Unknown dimension '%s'" % (key,)
+
+                self._dimensions.setdefault(key, []).extend(makeSequence(value))
+
+            Dispatch.RuleDispatcher.createOneInstance()
+
+        parameters = kw
         # store id
-        self._id = kw.pop('rule_id', None)
-
-        # store service
-        service_name = kw.pop('service', None)
-        self._service = Globals.services.get(service_name, None)
-        if not self._service:
-            raise ValueError, "No valid service was specified for the rule; service='%s'" % (service_name,)
-
-        # convert and check special dimensions: subnets, ports and zones at the moment
-
-        for ip_keyword in ['src_subnet', 'dst_subnet']:
-            ipv6_keyword = ip_keyword + '6'
-            # forbid usage of ipv6 related keywords:
-            if ipv6_keyword in kw:
-                raise ValueError, "Invalid dimension specification '%s'" % ipv6_keyword
-            (kw[ip_keyword], kw[ipv6_keyword]) = parseSubnets(kw.get(ip_keyword, []))
-
-        kw['src_ifgroup'] = parseGroups(kw.get('src_ifgroup', []))
-        kw['dst_ifgroup'] = parseGroups(kw.get('dst_ifgroup', []))
-        kw['src_port'] = parsePorts(kw.get('src_port', []))
-        kw['dst_port'] = parsePorts(kw.get('dst_port', []))
-        resolveZones(kw.get('src_zone', []))
-        resolveZones(kw.get('dst_zone', []))
-
-        # store values specified
-        self._dimensions = {}
-        for key, value in kw.items():
-            if key not in self.valid_dimensions:
-                if key in self.dimension_aliases:
-                    key = self.dimension_aliases[key]
-                else:
-                    raise ValueError, "Unknown dimension '%s'" % (key,)
-
-            self._dimensions.setdefault(key, []).extend(makeSequence(value))
+        self._id = parameters.pop('rule_id', None)
 
         Globals.rules.add(self)
-        Dispatch.RuleDispatcher.createOneInstance()
+
+        protocol_detect_dict = parameters.pop('detect', None)
+        if protocol_detect_dict:
+          from APR import DetectorProxy
+          from Service import Service
+          for detector_name, service_name in protocol_detect_dict.iteritems():
+            if not Globals.detectors.get(detector_name, None):
+              raise ValueError, "No such detector defined; detector='%s'" % (detector_name,)
+
+            if not Globals.services.get(service_name, None):
+              raise ValueError, "No such service defined; service='%s'" % (service_name,)
+
+          rule_service_name = "detector_service_for_rule_%s" % (self.getId(),)
+          Service(rule_service_name, proxy_class=DetectorProxy, detector_config=protocol_detect_dict)
+          parameters['service'] = rule_service_name
+
+        CreateRealRule(parameters)
 
     def getId(self):
         """
