@@ -1,0 +1,42 @@
+language: cpp
+
+compiler:
+  - gcc
+  - clang
+
+before_install:
+  - sudo add-apt-repository 'deb http://download.opensuse.org/repositories/security:/Zorp/xUbuntu_12.04/ ./'
+  - wget -qO - http://download.opensuse.org/repositories/security:/Zorp/xUbuntu_12.04/Release.key | sudo apt-key add -
+  - sudo apt-get update -qq
+
+script:
+  - sudo apt-get install -qq devscripts equivs
+  - sudo mk-build-deps -i
+  - ./autogen.sh
+  - ./configure --prefix=$HOME
+  - make
+  - make install
+  - PYTHONPATH=$HOME/lib/python2.7/site-packages make check
+  - sudo add-apt-repository 'deb http://download.opensuse.org/repositories/openSUSE:/Tools/xUbuntu_12.04/ /'
+  - wget -qO - http://download.opensuse.org/repositories/openSUSE:Tools/xUbuntu_12.04/Release.key | sudo apt-key add -
+  - sudo apt-get update -qq
+  - echo -e "" | sudo apt-get install osc
+  - dpkg-buildpackage -S
+  - echo -e "[general]\napiurl = https://api.opensuse.org\n[https://api.opensuse.org]\nuser = pfeiffersz\npass = $OBS_PASSWORD\n" > ~/.oscrc
+  - osc co $OBS_PROJECT:$OBS_SUBPROJECT/$OBS_PACKAGE
+  - rm -f $OBS_PROJECT:$OBS_SUBPROJECT/$OBS_PACKAGE/*
+  - mv ../$OBS_PACKAGE*.tar.gz $OBS_PROJECT:$OBS_SUBPROJECT/$OBS_PACKAGE
+  - mv ../$OBS_PACKAGE*.dsc $OBS_PROJECT:$OBS_SUBPROJECT/$OBS_PACKAGE
+  - echo -e "addFilter(\".*\") \n" >rpm/$OBS_PACKAGE.rpmlintrc
+  - mv rpm/$OBS_PACKAGE.* $OBS_PROJECT:$OBS_SUBPROJECT/$OBS_PACKAGE
+  - cd $OBS_PROJECT:$OBS_SUBPROJECT/$OBS_PACKAGE
+  - osc addremove
+after_success:
+  - osc commit -m "TRAVIS $TRAVIS_JOB_ID"
+
+env:
+  global:
+    - secure: "TesD/DQr5Q0N4dGTgFLYrbVZCJ1/xvxXSfAsNqVTAWn1kG7NBZEVLvB2nfxQRc7f+ata+RNetuk+OV0+mmofgLcN2h6qGDBfPsh/Bk2zi7k1VBIjAoT7uEFB5LSyOQ/fFjAErRFtzgteq1QKlJL+RtJcSs5KyhwBR/fmDi6Zyvw="
+    - OBS_PROJECT=security:Zorp
+    - OBS_SUBPROJECT=5.0
+    - OBS_PACKAGE=zorp
