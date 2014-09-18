@@ -23,6 +23,7 @@ build: debfiles-stamp build-stamp
 build-stamp:
 	dh_testdir
 
+	./autogen.sh
 	CFLAGS=$(DTEST) ./configure \
 		--prefix=/usr \
 		--mandir=\$${prefix}/share/man \
