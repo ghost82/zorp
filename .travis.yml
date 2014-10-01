@@ -5,9 +5,8 @@ compiler:
   - clang
 
 before_install:
-  - sudo add-apt-repository 'deb http://download.opensuse.org/repositories/security:/Zorp/xUbuntu_12.04/ ./'
-  - wget -qO - http://download.opensuse.org/repositories/security:/Zorp/xUbuntu_12.04/Release.key | sudo apt-key add -
-  - sudo apt-get update -qq
+  - source ci/obs_common.sh
+  - source ci/obs_before_install.sh
 
 before_script:
   - sudo apt-get install -qq devscripts equivs
@@ -20,29 +19,20 @@ script:
   - make
   - make install
   - PYTHONPATH=$HOME/lib/python2.7/site-packages make check
-  - sudo add-apt-repository 'deb http://download.opensuse.org/repositories/openSUSE:/Tools/xUbuntu_12.04/ /'
-  - wget -qO - http://download.opensuse.org/repositories/openSUSE:Tools/xUbuntu_12.04/Release.key | sudo apt-key add -
-  - sudo apt-get update -qq
-  - echo -e "" | sudo apt-get install osc
-  - dpkg-buildpackage -S
-  - echo -e "[general]\napiurl = https://api.opensuse.org\n[https://api.opensuse.org]\nuser = pfeiffersz\npass = $OBS_PASSWORD\n" > ~/.oscrc
-  - osc co $OBS_PROJECT:$OBS_SUBPROJECT/$OBS_PACKAGE
-  - rm -f $OBS_PROJECT:$OBS_SUBPROJECT/$OBS_PACKAGE/*
-  - mv ../$OBS_PACKAGE*.tar.gz $OBS_PROJECT:$OBS_SUBPROJECT/$OBS_PACKAGE
-  - mv ../$OBS_PACKAGE*.dsc $OBS_PROJECT:$OBS_SUBPROJECT/$OBS_PACKAGE
-  - echo -e "addFilter(\".*\") \n" >rpm/$OBS_PACKAGE.rpmlintrc
-  - mv rpm/$OBS_PACKAGE.* $OBS_PROJECT:$OBS_SUBPROJECT/$OBS_PACKAGE
-  - cd $OBS_PROJECT:$OBS_SUBPROJECT/$OBS_PACKAGE
-  - osc addremove
+  - source ci/obs_prepare.sh
+
 after_success:
-  - osc commit -m "TRAVIS $TRAVIS_JOB_ID"
+  - source ci/obs_commit.sh
 
 env:
   global:
     - secure: "TesD/DQr5Q0N4dGTgFLYrbVZCJ1/xvxXSfAsNqVTAWn1kG7NBZEVLvB2nfxQRc7f+ata+RNetuk+OV0+mmofgLcN2h6qGDBfPsh/Bk2zi7k1VBIjAoT7uEFB5LSyOQ/fFjAErRFtzgteq1QKlJL+RtJcSs5KyhwBR/fmDi6Zyvw="
-    - OBS_PROJECT=security:Zorp
+    - OBS_HOME=security
+    - OBS_PROJECT=Zorp
     - OBS_SUBPROJECT=5.0
     - OBS_PACKAGE=zorp
+    - TEST_OS=Ubuntu
+    - TEST_OS_VERSION=12.04
     - secure: "dDT9rtWPh8iYO56qWqatuKRE+gk3xEKKZa/sKSAbb/PyHSsJLkDp9vA4e0+JQNStC4YA+X0L6m4bpt275TKee1ucQg47to/monHmr3FG1LAx6zm8Gq7/4PlFnOo1oxfjFZEUnwF/WNZxjf6Y99n65onKl8fUGknGFnAKf0dYxWo="
 
 addons:
