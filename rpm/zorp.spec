@@ -21,23 +21,20 @@ BuildRequires:          libtool
 BuildRequires:          gcc-c++
 
 
-%if 0%{?fedora} || 0%{?centos}
+%if 0%{?fedora} || 0%{?rhel} || 0%{?centos}
 BuildRequires:          pyOpenSSL
 %else
 BuildRequires:          python-pyOpenSSL
-BuildRequires:          libtre-devel
 %endif
 
 BuildRequires:          gperf
-#BuildRequires:         python-radix
-#Requires:              python-radix
-#Requires:              python-pydns
+Requires:               py-radix
+Requires:               python-pydns
 
-%if 0%{?fedora} || 0%{?centos}
+%if 0%{?fedora} || 0%{?rhel} || 0%{?centos}
 Requires:               pyOpenSSL
 %else
 Requires:               python-pyOpenSSL
-Requires:               libtre-devel
 Requires(pre):          pwdutils
 %endif
 
