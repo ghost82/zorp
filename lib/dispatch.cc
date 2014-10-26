@@ -638,7 +638,7 @@ z_dispatch_connection(ZDispatchChain *chain, ZConnection *conn)
   /* nobody needed this connection, destroy it */
   /*LOG
     This message indicates that a new connection was accepted, but no
-    Listener/Receiver/Proxy was interested in it.
+    Dispatcher/Proxy was interested in it.
    */
   z_log(NULL, CORE_ERROR, 3, "Nobody was interested in this connection; %s", z_connection_format(conn, buf, sizeof(buf)));
   if (conn)
@@ -715,14 +715,13 @@ z_dispatch_accept(ZStream *fdstream, ZSockAddr *client, ZSockAddr *dest, gpointe
         {
           gchar buf1[MAX_SOCKADDR_STRING], buf2[MAX_SOCKADDR_STRING];
           /*LOG
-            This message indicates that Listener/Receiver was
+            This message indicates that Dispatcher was
             configured to be accept transparent connections, but it
             was connected directly.  Configure it either
             non-transparent or deny direct access to it and set up the
             appropriate TPROXY rule.
 
-            @see: Listener
-            @see: Receiver
+            @see: Dispatcher
           */
           z_log(chain->session_id, CORE_ERROR, 1, "Transparent listener connected directly, dropping connection; local='%s', client_local='%s'",
                 z_sockaddr_format(listen_addr, buf1, sizeof(buf1)),
@@ -1131,7 +1130,7 @@ z_dispatch_register(gchar *session_id,
           gchar buf[MAX_DISPATCH_BIND_STRING];
 
           /*LOG
-            This message indicates that a Listener/Receiver/Proxy was unable
+            This message indicates that a Dispatcher/Proxy was unable
             bind to a specified address, because another instance is already
             listening there and specified that only one connection could be
             accepted.
@@ -1204,7 +1203,7 @@ z_dispatch_unregister(ZDispatchEntry *entry)
       else
         {
 	  /*LOG
-	    This message indicates that a Listener/Receiver/Proxy tries to
+	    This message indicates that a Dispatcher/Proxy tries to
 	    unbind from the specified address, but have not registered
 	    itself to that address.
 	   */
@@ -1231,7 +1230,7 @@ z_dispatch_unregister(ZDispatchEntry *entry)
   else
     {
       /*LOG
-	This message indicates that a Listener/Receiver/Proxy tries to
+	This message indicates that a Dispatcher/Proxy tries to
 	unbind from the specified address, but Zorp does not bind to that
 	address.
        */

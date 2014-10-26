@@ -182,9 +182,6 @@ config.options.timeout_server_connect = 30000
 # The default language used for user messages in various proxies.
 config.options.language = "en"
 
-# Zone and CSZoneDispatcher shift cache parameter
-config.options.zone_dispatcher_shift_threshold = 1000
-
 # KZorp enabled or not. If KZorp is not present in the kernel and this is
 # enabled, Zorp startup/shutdown/reload will be delayed by about 5sec
 config.options.kzorp_enabled = TRUE

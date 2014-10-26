@@ -9,12 +9,10 @@ pylib/Zorp/Encryption.py Zorp
 pylib/Zorp/Globals.py Zorp
 pylib/Zorp/Keybridge.py Zorp
 pylib/Zorp/FileLock.py Zorp
-pylib/Zorp/Listener.py Zorp
 pylib/Zorp/Matcher.py Zorp
 pylib/Zorp/NAT.py Zorp
 pylib/Zorp/Proxy.py Zorp
 pylib/Zorp/Pssl.py Zorp
-pylib/Zorp/Receiver.py Zorp
 pylib/Zorp/Router.py Zorp
 pylib/Zorp/Rule.py Zorp
 pylib/Zorp/Resolver.py Zorp

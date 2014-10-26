@@ -523,9 +523,7 @@ class StackedSession(AbstractSession):
           <description>
             <para>
               Stores a reference to the proxy class, and modifies
-              the session_id to include the proxy name. This is
-              called by the Listener after the proxy module to
-              use is determined.
+              the session_id to include the proxy name.
             </para>
           </description>
           <metainfo>

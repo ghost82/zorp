@@ -26,25 +26,18 @@
       For each accepted connection, the Dispatcher creates a new service instance to handle the traffic arriving in
       the connection.
         </para>
-        <note><para>Earlier Zorp versions used different classes to handle TCP and
-        UDP connections (Listeners and Receivers, respectively).
-         These classes have been merged into the Dispatcher module.</para></note>
+        <note><para>
+         These classes have been merged into the Dispatcher module.
+        </para></note>
          <para>For each accepted connection, the Dispatcher creates a new service
          instance to handle the traffic arriving in the connection. The service
          started by the dispatcher depends on the type of the dispatcher:
-    </para>
+        </para>
         <itemizedlist>
                 <listitem>
                         <para>
                         <link linkend="python.Dispatch.Dispatcher">Dispatchers</link>
                         start the same service for every connection.
-                        </para>
-                </listitem>
-                <listitem>
-                        <para>
-                        <link linkend="python.Dispatch.CSZoneDispatcher">CSZoneDispatchers</link>
-                        start different services based on the zones the client
-                        and the destination server belong to.
                         </para>
                 </listitem>
         </itemizedlist>
@@ -56,21 +49,22 @@
         <section id="dispatcher_service_selection">
         <title>Zone-based service selection</title>
               <para>
-              Dispatchers can start only a predefined service. Use
-              CSZonedDispatchers to start different services for different connections.
-              CSZoneDispatchers assign different services to different client-server zone pairs.
+              Dispatchers can start only a predefined service. Use Rules to
+              start different services for different connections. Rules assign
+              different services to different traffic types.
               Define the zones and the related services in the
               <parameter>services</parameter> parameter.
-                The <parameter>*</parameter> wildcard matches all client or server zones.
+              The <parameter>*</parameter> wildcard matches all client or
+              server zones.
             </para>
             <note>
               <para>
                 The server zone may be modified by the proxy, the router, the
                 chainer, or the NAT policy used in the service. To select the
-                service, CSZoneDispatcher determines the server zone from the
-                original destination IP address of the incoming client request.
+                service, Rule determines the server zone from the original
+                destination IP address of the incoming client request.
                 Similarly, the client zone is determined from the source IP
-                   address of the original client request.
+                address of the original client request.
               </para>
             </note>
             <para>
@@ -641,365 +635,6 @@ class Dispatcher(BaseDispatch):
         </method>
         """
         return self.service
-
-class ZoneDispatcher(Dispatcher):
-    """
-    <class maturity="stable" internal="yes">
-      <summary>Class encapsulating the Dispatcher which starts a service by the client zone.</summary>
-      <description>
-        <para>
-          This class is similar to a simple Dispatcher, but instead of
-          starting a fixed service, it chooses one based on the client
-          zone.
-        </para>
-        <para>
-          It takes a mapping of services indexed by a zone name, with
-          an exception of the '*' service, which matches anything.
-        </para>
-      </description>
-      <metainfo>
-        <attributes>
-          <attribute maturity="stable">
-            <name>services</name>
-                <type>
-                      <hash>
-                        <key>
-                            <zone/>
-                        </key>
-                        <value>
-                            <service/>
-                        </value>
-                      </hash>
-                    </type>
-            <description>services mapping indexed by zone name</description>
-          </attribute>
-        </attributes>
-      </metainfo>
-    </class>
-    """
-
-    def __init__(self, bindto=None, services=None, **kw):
-        """
-        <method maturity="stable">
-          <summary>Constructor to initialize a ZoneDispatcher instance.</summary>
-          <description>
-            <para>
-              This constructor initializes a ZoneDispatcher instance and sets
-              its initial attributes based on arguments.
-            </para>
-          </description>
-          <metainfo>
-            <arguments>
-              <argument maturity="stable">
-                <name>bindto</name>
-                <type></type>
-                <description>bind to this address</description>
-              </argument>
-              <argument maturity="stable">
-                <name>services</name>
-                <type></type>
-                <description>a mapping between zone names and services</description>
-              </argument>
-              <argument maturity="stable">
-                <name>follow_parent</name>
-                <type></type>
-                <description>whether to follow the administrative hieararchy when finding the correct service</description>
-              </argument>
-            </arguments>
-          </metainfo>
-        </method>
-        """
-        self.follow_parent = kw.pop('follow_parent', FALSE)
-        super(ZoneDispatcher, self).__init__(bindto, None, **kw)
-        self.services = services
-        self.cache = ShiftCache('sdispatch(%s)' % str(bindto), config.options.zone_dispatcher_shift_threshold)
-
-    def getService(self, client_info):
-        """
-        <method internal="yes">
-          <summary>Virtual function which returns the service to be ran</summary>
-          <description>
-            <para>
-              This function is called by our base class to find out the
-              service to be used. It uses the client zone name to decide
-              which service to use.
-            </para>
-          </description>
-          <metainfo>
-            <arguments>
-              <argument maturity="stable">
-                <name>client_info</name>
-                <type></type>
-                <description>Client connection info</description>
-              </argument>
-            </arguments>
-          </metainfo>
-        </method>
-        """
-
-        cache_ndx = client_info.client_zone.getName()
-
-        cached = self.cache.lookup(cache_ndx)
-        if cached == 0:
-            ## LOG ##
-            # This message indicates that no applicable service was found for this client zone in the services cache.
-            # It is likely that there is no applicable service configured in this ZoneListener/Receiver at all.
-            # Check your ZoneListener/Receiver service configuration.
-            # @see: Listener.ZoneListener
-            # @see: Receiver.ZoneReceiver
-            ##
-            log(None, CORE_POLICY, 2, "No applicable service found for this client zone (cached); bindto='%s', client_zone='%s'", (self.bindto, client_info.client_zone))
-        elif cached:
-            return cached
-
-        src_hierarchy = {}
-        if self.follow_parent:
-            z = client_info.client_zone
-            level = 0
-            while z:
-                src_hierarchy[z.getName()] = level
-                z = z.admin_parent
-                level = level + 1
-            src_hierarchy['*'] = level
-            max_level = level + 1
-        else:
-            src_hierarchy[client_info.client_zone.getName()] = 0
-            src_hierarchy['*'] = 1
-            max_level = 10
-
-        best = None
-        for spec in self.services.keys():
-            try:
-                src_level = src_hierarchy[spec]
-            except KeyError:
-                src_level = max_level
-
-            if not best or                                                  \
-               (best_src_level > src_level):
-                best = self.services[spec]
-                best_src_level = src_level
-
-        s = None
-        if best_src_level < max_level:
-            try:
-                s = Globals.services[best]
-            except KeyError:
-                log(None, CORE_POLICY, 2, "No such service; service='%s'", (best))
-
-        else:
-            ## LOG ##
-            # This message indicates that no applicable service was found for this client zone.
-            # Check your ZoneListener/Receiver service configuration.
-            # @see: Listener.ZoneListener
-            # @see: Receiver.ZoneReceiver
-            ##
-            log(None, CORE_POLICY, 2, "No applicable service found for this client zone; bindto='%s', client_zone='%s'", (self.bindto, client_info.client_zone))
-
-        self.cache.store(cache_ndx, s)
-        return s
-
-class CSZoneDispatcher(Dispatcher):
-    """
-    <class maturity="stable">
-      <summary>Class encapsulating the Dispatcher which starts a service by the client and server zone.</summary>
-      <description>
-        <para>
-          This class is similar to a simple Dispatcher, but instead of
-          starting a fixed service, it chooses one based on the client
-          and the destined server zone.
-        </para>
-        <para>
-          It takes a mapping of services indexed by a client and the server
-          zone name, with an exception of the '*' zone, which matches
-          anything.
-        </para>
-        <para>
-          NOTE: the server zone might change during proxy and NAT processing,
-          therefore the server zone used here only matches the real
-          destination if those phases leave the server address intact.
-        </para>
-        <example>
-            <title>CSZoneDispatcher example</title>
-            <para>The following example defines a CSZoneDispatcher that
-            starts the service called <parameter>internet_HTTP_DMZ</parameter>
-            for connections received on the <parameter>192.168.2.1</parameter>
-             IP address, but only if the connection comes from the
-             <parameter>internet</parameter> zone and the destination is
-             in the <parameter>DMZ</parameter> zone.</para>
-            <synopsis>CSZoneDispatcher(bindto=SockAddrInet('192.168.2.1', 50080), services={("internet", "DMZ"):"internet_HTTP_DMZ"}, transparent=TRUE, backlog=255, threaded=FALSE, follow_parent=FALSE)</synopsis>
-        </example>
-      </description>
-      <metainfo>
-        <attributes>
-          <attribute maturity="stable">
-            <name>services</name>
-            <type></type>
-            <description>services mapping indexed by zone names</description>
-          </attribute>
-        </attributes>
-      </metainfo>
-    </class>
-    """
-
-    def __init__(self, bindto=None, services=None, **kw):
-        """
-        <method maturity="stable">
-          <summary>Constructor to initialize a CSZoneDispatcher instance.</summary>
-          <description>
-            <para>
-              This constructor initializes a CSZoneDispatcher instance and sets
-              its initial attributes based on arguments.
-            </para>
-          </description>
-          <metainfo>
-            <arguments>
-              <argument maturity="stable">
-                <name>bindto</name>
-                <type>
-                  <sockaddr existing="yes"/>
-                </type>
-               <description>An existing <link linkend="python.SockAddr">socket address</link> containing the IP address and port number where the Dispatcher accepts connections.</description>
-               </argument>
-              <argument maturity="stable">
-                <name>services</name>
-                <type>
-                  <hash>
-                    <key>
-                      <tuple>
-                        <zone/>
-                        <zone/>
-                      </tuple>
-                    </key>
-                    <value>
-                        <service/>
-                    </value>
-                  </hash>
-                </type>
-                <guitype>HASH;STRING_zone,STRING_zone;STRING_service</guitype>
-                <description>Client zone - server zone - service name pairs
-                using the <parameter>(("client_zone","server_zone"):"service")</parameter>
-                format; specifying the service to start when the dispatcher
-                accepts a connection from the given
-                client zone that targets the server zone.</description>
-              </argument>
-              <argument maturity="stable">
-                <name>follow_parent</name>
-                <type>
-                  <boolean/>
-                </type>
-                <description>Set this parameter to <parameter>TRUE</parameter>
-                if the dispatcher handles also the connections coming from
-                the child zones of the selected client zones. Otherwise,
-                the dispatcher accepts traffic only from the explicitly
-                listed client zones.</description>
-              </argument>
-            </arguments>
-          </metainfo>
-        </method>
-        """
-        self.follow_parent = kw.pop('follow_parent', FALSE)
-        super(CSZoneDispatcher, self).__init__(bindto, None, **kw)
-        self.services = services
-        self.cache = ShiftCache('csdispatch(%s)' % str(self.bindto), config.options.zone_dispatcher_shift_threshold)
-
-    def getService(self, client_info):
-        """
-        <method internal="yes">
-          <summary>Virtual function which returns the service to be ran</summary>
-          <description>
-            <para>
-              This function is called by our base class to find out the
-              service to be used for the current client_info. It uses the
-              client and the server zone name to decide which service to
-              use.
-            </para>
-          </description>
-          <metainfo>
-            <arguments>
-              <argument maturity="stable">
-                <name>client_info</name>
-                <type></type>
-                <description>Client connection info</description>
-              </argument>
-            </arguments>
-          </metainfo>
-        </method>
-        """
-        dest_zone = Zone.lookup(client_info.client_local)
-
-        cache_ndx = (client_info.client_zone.getName(), dest_zone.getName())
-
-        cached = self.cache.lookup(cache_ndx)
-        if cached == 0:
-            ## LOG ##
-            # This message indicates that no applicable service was found for this client zone in the services cache.
-            # It is likely that there is no applicable service configured in this CSZoneListener/Receiver at all.
-            # Check your CSZoneListener/Receiver service configuration.
-            # @see: Listener.CSZoneListener
-            # @see: Receiver.CSZoneReceiver
-            ##
-            log(None, CORE_POLICY, 2, "No applicable service found for this client & server zone (cached); bindto='%s', client_zone='%s', server_zone='%s'", (self.bindto, client_info.client_zone, dest_zone))
-        elif cached:
-            return cached
-
-        src_hierarchy = {}
-        dst_hierarchy = {}
-        if self.follow_parent:
-            z = client_info.client_zone
-            level = 0
-            while z:
-                src_hierarchy[z.getName()] = level
-                z = z.admin_parent
-                level = level + 1
-            src_hierarchy['*'] = level
-            max_level = level + 1
-            z = dest_zone
-            level = 0
-            while z:
-                dst_hierarchy[z.getName()] = level
-                z = z.admin_parent
-                level = level + 1
-            dst_hierarchy['*'] = level
-            max_level = max(max_level, level + 1)
-        else:
-            src_hierarchy[client_info.client_zone.getName()] = 0
-            src_hierarchy['*'] = 1
-            dst_hierarchy[dest_zone.getName()] = 0
-            dst_hierarchy['*'] = 1
-            max_level = 10
-
-        best = None
-        for spec in self.services.keys():
-            try:
-                src_level = src_hierarchy[spec[0]]
-                dst_level = dst_hierarchy[spec[1]]
-            except KeyError:
-                src_level = max_level
-                dst_level = max_level
-
-            if not best or                                                  \
-               (best_src_level > src_level) or                              \
-               (best_src_level == src_level and best_dst_level > dst_level):
-                best = self.services[spec]
-                best_src_level = src_level
-                best_dst_level = dst_level
-
-        s = None
-        if best_src_level < max_level and best_dst_level < max_level:
-            try:
-                s = Globals.services[best]
-            except KeyError:
-                log(None, CORE_POLICY, 2, "No such service; service='%s'", (best))
-        else:
-            ## LOG ##
-            # This message indicates that no applicable service was found for this client zone.
-            # Check your CSZoneListener/Receiver service configuration.
-            # @see: Listener.CSZoneListener
-            # @see: Receiver.CSZoneReceiver
-            ##
-            log(None, CORE_POLICY, 2, "No applicable service found for this client & server zone; bindto='%s', client_zone='%s', server_zone='%s'", (self.bindto, session.client_zone, dest_zone))
-        self.cache.store(cache_ndx, s)
-        return s
 
 
 def purgeDispatches():

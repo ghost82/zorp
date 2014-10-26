@@ -492,7 +492,7 @@ z_policy_dispatch_new_instance(PyObject *o G_GNUC_UNUSED, PyObject *args)
 
   if (current_policy == NULL)
     {
-      PyErr_SetString(PyExc_RuntimeError, "Parsing phase has not completed yet, Listener & Receiver must be defined in the instance init() function.");
+      PyErr_SetString(PyExc_RuntimeError, "Parsing phase has not completed yet, Dispatcher & Rule must be defined in the instance init() function.");
       return NULL;
     }
 
