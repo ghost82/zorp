@@ -122,8 +122,6 @@ ZORP_MUNIN_CONF_DIR="${sysconfdir}/munin/plugin-conf.d"
 ZORP_NAGIOS_CONF_DIR="${sysconfdir}/nagios/nrpe.d"
 ZORP_SUDOERSD_CONF_DIR="${sysconfdir}/sudoers.d"
 sysconfdir="${sysconfdir}/zorp"
-#datadir='${prefix}/share/zorp'
-libdir='${prefix}/lib'
 
 dnl ***************************************************************************
 dnl Argument processing which might affect detection
@@ -322,7 +320,7 @@ zorpeval()
 }
 
 ZORP_MUNIN_DIR="${prefix}/share/munin/plugins"
-ZORP_NAGIOS_DIR="${prefix}/lib/nagios/plugins"
+ZORP_NAGIOS_DIR="${libdir}/nagios/plugins"
 ZORP_PYTHON_DIR="${pythondir}/Zorp"
 KZORP_PYTHON_DIR="${pythondir}/kzorp"
 ZORPCTL_PYTHON_DIR="${pythondir}/zorpctl"
