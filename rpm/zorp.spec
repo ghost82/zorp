@@ -52,14 +52,6 @@ violate the application protocol they are injected into, a large percentage
 of the attacks do not cross a Zorp based firewall even if the given service
 is permitted.
 
-%package devel
-Summary:                Headers for zorp
-Group:                  System/Daemons
-Requires:               libzorpll-5_0-0-devel
-
-%description devel
-This package provides header files for zorp
-
 %prep
 %setup -q -n zorp
 
@@ -99,20 +91,9 @@ ldconfig
 %attr(755,root,root) %{_libdir}/zorp/tests/*
 
 %dir %attr(750,root,zorp) %{_sysconfdir}/zorp
-%dir %attr(750,zorp,zorp) %{_localstatedir}/run/zorp
-%dir %attr(755,root,root) %{_datadir}/zorp
-%dir %attr(755,root,root) %{_datadir}/zorp/http
-%dir %attr(755,root,root) %{_datadir}/zorp/pop3
-%dir %attr(755,root,root) %{_datadir}/zorp/pop3/en
-%dir %attr(755,root,root) %{_datadir}/zorp/pop3/hu
+%dir %attr(750,zorp,zorp) %{_localstatedir}
 
 %attr(640,root,zorp) /etc/zorp/*
-%attr(644,root,root) %{_datadir}/zorp/pop3/en/reject.msg
-%attr(644,root,root) %{_datadir}/zorp/pop3/hu/reject.msg
-%attr(644,root,root) %{_datadir}/zorp/http/hu/*
-%attr(644,root,root) %{_datadir}/zorp/http/en/*
-%attr(644,root,root) %{_datadir}/zorp/http/de/*
-%attr(644,root,root) %{_datadir}/zorp/moduledist.conf
 
 %dir %{python2_sitelib}/Zorp
 %dir %{python2_sitelib}/zorpctl
@@ -188,6 +169,13 @@ ldconfig
 %package -n libzorp-5_0-devel
 Summary:                Development files needed to compile Zorp modules
 Group:                  System/Daemons
+Requires:               libzorpll-5_0-0-devel
+Requires:               glibc-devel
+Requires:               libopenssl-devel
+Requires:               python-devel
+Requires:               glib2-devel
+Requires:               libcap-devel
+Requires:               zlib-devel
 
 %description -n libzorp-5_0-devel
 Zorp is a new generation firewall. It is essentially a transparent proxy
@@ -222,7 +210,7 @@ Common files for Zorp and kZorp.
 %config %{_sysconfdir}/zorp/zorpctl.conf
 
 %files base
-%attr(755,root,root) %{_mandir}/man5/zorpctl.conf.5.gz
+%attr(644,root,root) %{_mandir}/man5/zorpctl.conf.5.gz
 
 %package -n python-zorp-base
 Summary:                Base files for zorp
@@ -267,14 +255,24 @@ SSL, TELNET, WHOIS, and two general modules ANYPY and PLUG.
 %defattr(-,root,root)
 %dir %{_libdir}/zorp/
 %{_libdir}/zorp/lib*.so*
-%{_libdir}/zorp/lib*.la
+
+%dir %attr(755,root,root) %{_datadir}/zorp
 
 %dir %attr(755,root,root) %{_datadir}/zorp/http/de
 %dir %attr(755,root,root) %{_datadir}/zorp/http/en
 %dir %attr(755,root,root) %{_datadir}/zorp/http/hu
+%dir %attr(755,root,root) %{_datadir}/zorp/http
+
 %attr(644,root,root) %{_datadir}/zorp/http/en/*.html
 %attr(644,root,root) %{_datadir}/zorp/http/de/*.html
 %attr(644,root,root) %{_datadir}/zorp/http/hu/*.html
+
+%dir %attr(755,root,root) %{_datadir}/zorp/pop3
+%dir %attr(755,root,root) %{_datadir}/zorp/pop3/en
+%dir %attr(755,root,root) %{_datadir}/zorp/pop3/hu
+
+%attr(644,root,root) %{_datadir}/zorp/pop3/en/reject.msg
+%attr(644,root,root) %{_datadir}/zorp/pop3/hu/reject.msg
 
 %attr(755,root,root) %{python2_sitelib}/Zorp/AnyPy.py
 %attr(755,root,root) %{python2_sitelib}/Zorp/APR.py
@@ -286,8 +284,28 @@ SSL, TELNET, WHOIS, and two general modules ANYPY and PLUG.
 %attr(755,root,root) %{python2_sitelib}/Zorp/Smtp.py
 %attr(755,root,root) %{python2_sitelib}/Zorp/Telnet.py
 %attr(755,root,root) %{python2_sitelib}/Zorp/Whois.py
+
+%package modules-devel
+Summary:                Zorp proxy modules
+Group:                  System/Daemons
+Requires:               libzorp-5_0-devel
+
+%description modules-devel
+
+Zorp is a new generation firewall. It is essentially a transparent proxy
+firewall, with strict protocol analyzing proxies, a modular architecture,
+and fine-grained control over the mediated traffic. Configuration decisions
+are scriptable with the Python based configuration language.
+
+This package conatins development files for zorp modules.
+
+%files modules-devel
+%defattr(-,root,root)
+%dir %{_libdir}/zorp/
+%{_libdir}/zorp/lib*.la
+
 %package -n python-kzorp
-Summary:                Python bindings for kZorp.
+Summary:                Python bindings for kZorp
 Group:                  System/Daemons
 
 %description -n python-kzorp
@@ -325,9 +343,10 @@ This package contains plugins for the Munin monitoring tool.
 %dir %{_datadir}/munin/
 %dir %{_datadir}/munin/plugins/
 %attr(755,root,root) %{_datadir}/munin/plugins/*
-%dir %{_sysconfdir}/munin
-%dir %{_sysconfdir}/munin/plugin-conf.d
-%attr(644,root,root) %{_sysconfdir}/munin/plugin-conf.d/*
+
+%config %dir %{_sysconfdir}/munin/
+%config %dir %{_sysconfdir}/munin/plugin-conf.d/
+%config %attr(644,root,root) %{_sysconfdir}/munin/plugin-conf.d/*
 
 
 %package nagios-plugins
@@ -345,17 +364,19 @@ are scriptable with the Python based configuration language.
 This package contains plugins for the Nagios monitoring tool.
 
 %files nagios-plugins
-%dir %{_sysconfdir}/sudoers.d
-%attr(440,root,root) %{_sysconfdir}/sudoers.d/zorp_nagios_plugins
-%dir %{_sysconfdir}/nagios
-%dir %{_sysconfdir}/nagios/nrpe.d
-%attr(644,root,root) %{_sysconfdir}/nagios/nrpe.d/zorp.cfg
 %dir %{_libdir}/nagios
 %dir %{_libdir}/nagios/plugins
 %attr(755,root,root) %{_libdir}/nagios/plugins/*
 
+%config %dir %{_sysconfdir}/sudoers.d
+%config %attr(440,root,root) %{_sysconfdir}/sudoers.d/zorp_nagios_plugins
+%config %dir %{_sysconfdir}/nagios/
+%config %dir %{_sysconfdir}/nagios/nrpe.d/
+%config %attr(644,root,root) %{_sysconfdir}/nagios/nrpe.d/zorp.cfg
+
+
 %package -n kzorp 
-Summary:                Python bindings for kzorp.
+Summary:                Python bindings for kzorp
 Group:                  System/Daemons
 
 %description -n kzorp
